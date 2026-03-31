@@ -163,7 +163,7 @@ jobs:
 
       - name: 编译 NSIS 安装包
         run: |
-          makensis installer.nsi
+          "C:\Program Files (x86)\NSIS\makensis.exe" installer.nsi
           echo "安装包编译完成"
           dir build\bin
 
@@ -370,54 +370,65 @@ jobs:
         run: npm install
 
       - name: 构建 macOS Intel (amd64) 应用
+        env:
+          GOARCH: amd64
+          CGO_ENABLED: 1
         run: |
           wails build -platform darwin/amd64 -ldflags "-s"
-          mv build/bin/${{ env.APP_NAME }}.app build/bin/${{ env.APP_NAME }}_intel.app 2>/dev/null || true
+          mv build/bin/*.app build/bin/${{ env.APP_NAME_EN }}_intel.app 2>/dev/null || true
           echo "macOS amd64 构建完成"
+          ls -la build/bin/
 
       - name: 构建 macOS Apple Silicon (arm64) 应用
+        env:
+          GOARCH: arm64
+          CGO_ENABLED: 1
         run: |
           wails build -platform darwin/arm64 -ldflags "-s"
-          mv build/bin/${{ env.APP_NAME }}.app build/bin/${{ env.APP_NAME }}_arm64.app 2>/dev/null || true
+          mv build/bin/*.app build/bin/${{ env.APP_NAME_EN }}_arm64.app 2>/dev/null || true
           echo "macOS arm64 构建完成"
           ls -la build/bin/
 
       - name: 打包 Intel DMG
         run: |
-          # 恢复文件名用于 DMG 制作
-          if [ -d "build/bin/${{ env.APP_NAME }}_intel.app" ]; then
-            cp -R "build/bin/${{ env.APP_NAME }}_intel.app" "build/bin/${{ env.APP_NAME }}.app"
+          if [ -d "build/bin/${{ env.APP_NAME_EN }}_intel.app" ]; then
+            # 重命名为 .app 用于 DMG 制作
+            cp -R "build/bin/${{ env.APP_NAME_EN }}_intel.app" "build/bin/${{ env.APP_NAME_EN }}.app"
+            
+            hdiutil create \
+              -volname "${{ env.APP_NAME_EN }}" \
+              -srcfolder "build/bin/${{ env.APP_NAME_EN }}.app" \
+              -ov \
+              -format UDZO \
+              -imagekey zlib-level=9 \
+              "build/bin/${{ env.APP_NAME_EN }}_macos_amd64.dmg"
+            
+            rm -rf "build/bin/${{ env.APP_NAME_EN }}.app"
+            echo "Intel DMG 创建完成"
+          else
+            echo "WARNING: Intel .app not found, skipping Intel DMG"
+            ls -la build/bin/
           fi
-          
-          # 创建 DMG（Intel）
-          hdiutil create \
-            -volname "${{ env.APP_NAME }}" \
-            -srcfolder "build/bin/${{ env.APP_NAME }}.app" \
-            -ov \
-            -format UDZO \
-            -imagekey zlib-level=9 \
-            "build/bin/${{ env.APP_NAME_EN }}_macos_amd64.dmg"
-          
-          echo "Intel DMG 创建完成"
 
       - name: 打包 Apple Silicon DMG
         run: |
-          if [ -d "build/bin/${{ env.APP_NAME }}_arm64.app" ]; then
-            rm -rf "build/bin/${{ env.APP_NAME }}.app"
-            cp -R "build/bin/${{ env.APP_NAME }}_arm64.app" "build/bin/${{ env.APP_NAME }}.app"
+          if [ -d "build/bin/${{ env.APP_NAME_EN }}_arm64.app" ]; then
+            cp -R "build/bin/${{ env.APP_NAME_EN }}_arm64.app" "build/bin/${{ env.APP_NAME_EN }}.app"
             
             hdiutil create \
-              -volname "${{ env.APP_NAME }}" \
-              -srcfolder "build/bin/${{ env.APP_NAME }}.app" \
+              -volname "${{ env.APP_NAME_EN }}" \
+              -srcfolder "build/bin/${{ env.APP_NAME_EN }}.app" \
               -ov \
               -format UDZO \
               -imagekey zlib-level=9 \
               "build/bin/${{ env.APP_NAME_EN }}_macos_arm64.dmg"
             
+            rm -rf "build/bin/${{ env.APP_NAME_EN }}.app"
             echo "Apple Silicon DMG 创建完成"
+          else
+            echo "WARNING: ARM64 .app not found, skipping ARM64 DMG"
+            ls -la build/bin/
           fi
-          
-          ls -la build/bin/
 
       - name: 计算文件哈希值
         run: |
