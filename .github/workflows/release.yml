@@ -110,6 +110,7 @@ jobs:
           # 设置 NSIS 变量
           $appName = "${{ env.APP_NAME }}"
           $appNameEn = "${{ env.APP_NAME_EN }}"
+          $setupExe = "build\bin\$($appNameEn)_Setup.exe"
 
           # 使用字符串数组生成 NSIS 脚本（避免 YAML 多行块中的 here-string 缩进问题）
           $nsisLines = @(
@@ -124,7 +125,7 @@ jobs:
             "!define INSTALL_DIR `$PROGRAMFILES64\$appName"
             ""
             "Name `${APP_NAME} v`${APP_VERSION}"
-            "OutFile 'build\bin\$appNameEn_Setup.exe'"
+            "OutFile '$setupExe'"
             "Unicode True"
             "InstallDir '${INSTALL_DIR}'"
             "InstallDirRegKey HKLM 'Software\${APP_NAME}' ''"
