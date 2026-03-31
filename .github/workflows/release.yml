@@ -58,10 +58,21 @@ jobs:
         run: npm install
 
       - name: 构建 Windows 单文件可执行程序
+        shell: pwsh
         run: |
           wails build -platform windows/amd64 -ldflags "-s" -o "${{ env.APP_NAME }}.exe"
-          echo "构建完成，文件路径："
-          dir build\bin
+          Write-Host "构建完成，build\bin 目录内容："
+          Get-ChildItem -Path "build\bin" | Format-Table Name, Length -AutoSize
+          # 确认 exe 文件存在
+          $exe = Get-ChildItem -Path "build\bin" -Filter "*.exe" | Select-Object -First 1
+          if ($exe) {
+            Write-Host "找到可执行文件: $($exe.FullName)，大小: $($exe.Length) 字节"
+            # 将实际文件名写入 GITHUB_ENV 供后续步骤使用
+            echo "ACTUAL_EXE_NAME=$($exe.Name)" >> $env:GITHUB_ENV
+          } else {
+            Write-Error "未找到 .exe 文件！"
+            exit 1
+          }
 
       - name: 安装 NSIS（制作安装包）
         shell: pwsh
@@ -82,18 +93,27 @@ jobs:
       - name: 生成 NSIS 安装脚本
         shell: pwsh
         run: |
-          # 检查构建输出
-          if (-not (Test-Path "build\bin\${{ env.APP_NAME }}.exe")) {
-            Write-Error "Build output not found: build\bin\${{ env.APP_NAME }}.exe"
+          # 从环境变量获取实际的 exe 文件名（由前一步骤设置）
+          $actualExeName = $env:ACTUAL_EXE_NAME
+          if (-not $actualExeName) {
+            Write-Error "ACTUAL_EXE_NAME 未设置，前一步骤可能失败了"
+            exit 1
+          }
+          Write-Host "使用实际 exe 文件名: $actualExeName"
+          
+          # 再次验证文件存在
+          if (-not (Test-Path "build\bin\$actualExeName")) {
+            Write-Error "Build output not found: build\bin\$actualExeName"
             ls -Recurse build 2>/dev/null | head -20
             exit 1
           }
-          Write-Host "Build output verified: build\bin\${{ env.APP_NAME }}.exe"
+          Write-Host "Build output verified: build\bin\$actualExeName"
           
           $version = "${{ github.ref_name }}" -replace '^v', ''
           if (-not $version) { $version = "1.0.0" }
           
           # 使用数组避免 here-string 的缩进问题
+          # 注意：APP_EXE 定义为实际的 exe 文件名，不假设中文支持
           $lines = @(
             "; 万能工具箱 NSIS 安装脚本"
             "; 自动生成，请勿手动修改"
@@ -102,7 +122,7 @@ jobs:
             "!define APP_VERSION `"$version`""
             "!define APP_PUBLISHER `"MasterPick`""
             "!define APP_URL `"https://github.com/MasterPick/universal-toolbox`""
-            "!define APP_EXE `"${{ env.APP_NAME }}.exe`""
+            "!define APP_EXE `"$actualExeName`""
             "!define INSTALL_DIR `"`$PROGRAMFILES64\${{ env.APP_NAME }}`""
             ""
             "Name `"`${APP_NAME} v`${APP_VERSION}`""
@@ -181,10 +201,42 @@ jobs:
           $nsisScript = $lines -join "`n"
           [System.IO.File]::WriteAllText("$PWD\installer.nsi", $nsisScript, [System.Text.UTF8Encoding]::new($false))
           Write-Host "NSIS 脚本生成完成，行数: $($lines.Count)"
+          
+          # 验证脚本内容
+          Write-Host "`n===== installer.nsi 关键行 ====="
+          Get-Content "installer.nsi" | Select-String "!define APP_EXE" | ForEach-Object { Write-Host $_ }
+          Get-Content "installer.nsi" | Select-String "File `"build" | ForEach-Object { Write-Host $_ }
 
       - name: 编译 NSIS 安装包
         shell: pwsh
         run: |
+          # 调试：确认当前目录和文件状态
+          Write-Host "当前工作目录: $PWD"
+          Write-Host ""
+          Write-Host "===== build\bin 目录内容 ====="
+          Get-ChildItem -Path "build\bin" -Recurse | Format-Table Name, Length, FullName -AutoSize
+          Write-Host ""
+
+          # 确认 NSIS 脚本存在并显示关键行
+          if (-not (Test-Path "installer.nsi")) {
+            Write-Error "installer.nsi 不存在！"
+            exit 1
+          }
+          Write-Host "===== installer.nsi 关键行（File 指令）====="
+          Get-Content "installer.nsi" | Select-String "File " | ForEach-Object { Write-Host $_ }
+          Write-Host ""
+
+          # 确认 exe 文件存在
+          $expectedExe = "build\bin\${{ env.APP_NAME }}.exe"
+          Write-Host "期望的 exe 路径: $expectedExe"
+          if (Test-Path $expectedExe) {
+            $fileInfo = Get-Item $expectedExe
+            Write-Host "文件存在！大小: $($fileInfo.Length) 字节"
+          } else {
+            Write-Error "文件不存在: $expectedExe"
+            exit 1
+          }
+
           # 尝试多个可能的 NSIS 安装路径
           $makensis = $null
           @(
@@ -200,7 +252,7 @@ jobs:
           }
           
           Write-Host "Using NSIS: $makensis"
-          & $makensis installer.nsi
+          & $makensis /NOCD installer.nsi
           if ($LASTEXITCODE -ne 0) {
             Write-Error "NSIS compilation failed with exit code $LASTEXITCODE"
             exit 1
