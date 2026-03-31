@@ -119,7 +119,7 @@ jobs:
             "!define APP_PUBLISHER 'MasterPick'"
             "!define APP_URL 'https://github.com/MasterPick/universal-toolbox'"
             "!define APP_EXE '${{ env.APP_NAME_EN }}.exe'"
-            "!define INSTALL_DIR '$$PROGRAMFILES64\${{ env.APP_NAME }}'"
+            '"!define INSTALL_DIR ''$$PROGRAMFILES64\${{ env.APP_NAME }}''"'
             ""
             "Name '${APP_NAME} v${APP_VERSION}'"
             "OutFile 'build\bin\${{ env.APP_NAME_EN }}_Setup.exe'"
@@ -141,7 +141,7 @@ jobs:
             "!insertmacro MUI_PAGE_LICENSE 'LICENSE'"
             "!insertmacro MUI_PAGE_DIRECTORY"
             "!insertmacro MUI_PAGE_INSTFILES"
-            "!define MUI_FINISHPAGE_RUN '$$INSTDIR\${APP_EXE}'"
+            '"!define MUI_FINISHPAGE_RUN ''$$INSTDIR\${APP_EXE}''"'
             "!define MUI_FINISHPAGE_RUN_TEXT 'Run ${APP_NAME}'"
             "!insertmacro MUI_PAGE_FINISH"
             ""
@@ -152,42 +152,42 @@ jobs:
             ""
             "Section 'Main' SecMain"
             "  SectionIn RO"
-            "  SetOutPath '$$INSTDIR'"
+            '"  SetOutPath ''$$INSTDIR''''
             "  File 'build\bin\${APP_EXE}'"
             "  File 'README.md'"
             "  File 'LICENSE'"
             ""
             "  ; Desktop shortcut"
-            "  CreateShortcut '$$DESKTOP\${APP_NAME}.lnk' '$$INSTDIR\${APP_EXE}'"
+            '"  CreateShortcut ''$$DESKTOP\${APP_NAME}.lnk'' ''$$INSTDIR\${APP_EXE}''''
             ""
             "  ; Start menu"
-            "  CreateDirectory '$$SMPROGRAMS\${APP_NAME}'"
-            "  CreateShortcut '$$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk' '$$INSTDIR\${APP_EXE}'"
-            "  CreateShortcut '$$SMPROGRAMS\${APP_NAME}\Uninstall.lnk' '$$INSTDIR\Uninstall.exe'"
+            '"  CreateDirectory ''$$SMPROGRAMS\${APP_NAME}''''
+            '"  CreateShortcut ''$$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk'' ''$$INSTDIR\${APP_EXE}''''
+            '"  CreateShortcut ''$$SMPROGRAMS\${APP_NAME}\Uninstall.lnk'' ''$$INSTDIR\Uninstall.exe''''
             ""
             "  ; Registry"
-            "  WriteRegStr HKLM 'Software\${APP_NAME}' '' '$$INSTDIR'"
+            '"  WriteRegStr HKLM ''Software\${APP_NAME}'' '' ''$$INSTDIR''''
             "  WriteRegStr HKLM 'Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}' 'DisplayName' '${APP_NAME}'"
-            "  WriteRegStr HKLM 'Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}' 'UninstallString' '$$INSTDIR\Uninstall.exe'"
+            '"  WriteRegStr HKLM ''Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}'' ''UninstallString'' ''$$INSTDIR\Uninstall.exe''''
             "  WriteRegStr HKLM 'Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}' 'DisplayVersion' '${APP_VERSION}'"
             "  WriteRegStr HKLM 'Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}' 'Publisher' '${APP_PUBLISHER}'"
             "  WriteRegStr HKLM 'Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}' 'URLInfoAbout' '${APP_URL}'"
             ""
             "  ; Uninstaller"
-            "  WriteUninstaller '$$INSTDIR\Uninstall.exe'"
+            '"  WriteUninstaller ''$$INSTDIR\Uninstall.exe''''
             "SectionEnd"
             ""
             "Section 'Uninstall'"
-            "  Delete '$$INSTDIR\${APP_EXE}'"
-            "  Delete '$$INSTDIR\README.md'"
-            "  Delete '$$INSTDIR\LICENSE'"
-            "  Delete '$$INSTDIR\Uninstall.exe'"
-            "  RMDir '$$INSTDIR'"
+            '"  Delete ''$$INSTDIR\${APP_EXE}''''
+            '"  Delete ''$$INSTDIR\README.md''''
+            '"  Delete ''$$INSTDIR\LICENSE''''
+            '"  Delete ''$$INSTDIR\Uninstall.exe''''
+            '"  RMDir ''$$INSTDIR''''
             ""
-            "  Delete '$$DESKTOP\${APP_NAME}.lnk'"
-            "  Delete '$$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk'"
-            "  Delete '$$SMPROGRAMS\${APP_NAME}\Uninstall.lnk'"
-            "  RMDir '$$SMPROGRAMS\${APP_NAME}'"
+            '"  Delete ''$$DESKTOP\${APP_NAME}.lnk''''
+            '"  Delete ''$$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk''''
+            '"  Delete ''$$SMPROGRAMS\${APP_NAME}\Uninstall.lnk''''
+            '"  RMDir ''$$SMPROGRAMS\${APP_NAME}''''
             ""
             "  DeleteRegKey HKLM 'Software\${APP_NAME}'"
             "  DeleteRegKey HKLM 'Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}'"
