@@ -74,18 +74,12 @@ jobs:
             exit 1
           }
 
-      - name: 验证 NSIS 安装
-        shell: pwsh
-        run: |
-          # GitHub Actions Windows runner 已预装 NSIS，直接验证即可
-          @("C:\Program Files (x86)\NSIS\makensis.exe", "C:\Program Files\NSIS\makensis.exe") | ForEach-Object {
-            if (Test-Path $_) {
-              Write-Host "NSIS found at: $_"
-              $ver = & $_ /VERSION
-              Write-Host "NSIS version: $ver"
-            }
-          }
-          echo "NSIS 验证完成"
+      - name: 安装 NSIS
+        uses: negrutiu/nsis-install@v2
+        with:
+          distro: 'negrutiu'
+          arch: 'x86'
+          register-path: true
 
       - name: 生成 NSIS 安装脚本
         shell: pwsh
@@ -207,23 +201,14 @@ jobs:
       - name: 编译 NSIS 安装包
         shell: pwsh
         run: |
-          $makensis = $null
-          @("C:\Program Files (x86)\NSIS\makensis.exe", "C:\Program Files\NSIS\makensis.exe") | ForEach-Object {
-            if (Test-Path $_) { $makensis = $_ }
-          }
-          
-          if (-not $makensis) {
-            Write-Error "makensis.exe not found"
-            exit 1
-          }
-          
-          Write-Host "Using NSIS: $makensis"
-          & $makensis /NOCD installer.nsi
+          # NSIS 已通过 negrutiu/nsis-install action 安装并添加到 PATH
+          Write-Host "使用 makensis 编译安装包"
+          makensis /NOCD installer.nsi
           if ($LASTEXITCODE -ne 0) {
-            Write-Error "NSIS compilation failed with exit code $LASTEXITCODE"
+            Write-Error "NSIS 编译失败，退出码: $LASTEXITCODE"
             exit 1
           }
-          Write-Host "NSIS compilation complete"
+          Write-Host "NSIS 编译完成"
           Get-ChildItem -Path "build\bin" | Format-Table Name, Length -AutoSize
 
       - name: 计算文件哈希值
