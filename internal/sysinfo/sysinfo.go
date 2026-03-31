@@ -171,11 +171,20 @@ func (s *SysInfo) GetPortList() ([]PortInfo, error) {
 			continue
 		}
 
+		// conn.Type 在 gopsutil v3.24+ 中为 uint32，需要手动转换为可读字符串
+		typeStr := map[uint32]string{
+			1: "TCP", 2: "UDP", 3: "TCPv6", 4: "UDPv6",
+		}
+		connTypeName, ok := typeStr[conn.Type]
+		if !ok {
+			connTypeName = fmt.Sprintf("UNKNOWN(%d)", conn.Type)
+		}
+
 		info := PortInfo{
 			Port:   conn.Laddr.Port,
 			PID:    conn.Pid,
 			Status: conn.Status,
-			Type:   conn.Type.String(),
+			Type:   connTypeName,
 		}
 
 		// 获取进程名
