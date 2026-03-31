@@ -132,9 +132,9 @@ jobs:
             "!include 'MUI2.nsh'"
             ""
             "!define MUI_ABORTWARNING"
-            '!define MUI_ICON "$$NSISDIR\Contrib\Graphics\Icons\modern-install.ico"'
-            '!define MUI_UNICON "$$NSISDIR\Contrib\Graphics\Icons\modern-uninstall.ico"'
-            '!define MUI_WELCOMEFINISHPAGE_BITMAP "$$NSISDIR\Contrib\Graphics\Wizard\win.bmp"'
+            '!define MUI_ICON "C:\Program Files (x86)\NSIS\Contrib\Graphics\Icons\modern-install.ico"'
+            '!define MUI_UNICON "C:\Program Files (x86)\NSIS\Contrib\Graphics\Icons\modern-uninstall.ico"'
+            '!define MUI_WELCOMEFINISHPAGE_BITMAP "C:\Program Files (x86)\NSIS\Contrib\Graphics\Wizard\win.bmp"'
             "!define MUI_HEADERIMAGE"
             ""
             "!insertmacro MUI_PAGE_WELCOME"
