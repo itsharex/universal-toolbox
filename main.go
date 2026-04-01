@@ -59,6 +59,7 @@ func main() {
 		DisableResize:    false,
 		Fullscreen:       false,
 		WindowStartState: options.Normal,
+		Frameless:        true,  // 无边框窗口（使用自定义标题栏）
 
 		// 嵌入前端资源
 		AssetServer: &assetserver.Options{
@@ -87,7 +88,7 @@ func main() {
 			DisableWindowIcon:                 false,
 			IsZoomControlEnabled:              false,
 			EnableSwipeGestures:               false,
-			DisableFramelessWindowDecorations: true,  // 启用无边框窗口（避免双标题栏）
+			DisableFramelessWindowDecorations: false,  // 禁用系统标题栏装饰
 		},
 
 		// 日志级别
