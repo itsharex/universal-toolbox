@@ -334,8 +334,8 @@ jobs:
           cat > "$DEB_DIR/usr/share/applications/${{ env.APP_NAME_EN }}.desktop" << EOF
           [Desktop Entry]
           Version=${VERSION}
-          Name=万能工具箱
-          Name[zh_CN]=万能工具箱
+          Name=XTool
+          Name[zh_CN]=XTool
           Comment=一站式桌面工具集
           Comment[zh_CN]=一站式桌面工具集，功能丰富、启动快、界面现代
           Exec=/usr/bin/${{ env.APP_NAME_EN }}
@@ -343,7 +343,7 @@ jobs:
           Terminal=false
           Type=Application
           Categories=Utility;Development;
-          Keywords=toolbox;tools;developer;工具箱;
+          Keywords=toolbox;tools;developer;xtool;
           StartupNotify=true
           EOF
           
@@ -355,8 +355,8 @@ jobs:
           Priority: optional
           Architecture: amd64
           Maintainer: MasterPick <masterpickself@outlook.com>
-          Homepage: https://github.com/MasterPick/universal-toolbox
-          Description: 万能工具箱 - 一站式桌面工具集
+          Homepage: https://github.com/MasterPick/xtool
+          Description: XTool - 一站式桌面工具集
            功能丰富的跨平台桌面工具集，包含开发工具、系统工具、
            日常工具、网络工具等30+实用功能。
            .
@@ -368,7 +368,7 @@ jobs:
           #!/bin/bash
           set -e
           update-desktop-database /usr/share/applications 2>/dev/null || true
-          echo "万能工具箱安装完成！可在应用菜单中找到，或运行：universal-toolbox"
+          echo "XTool 安装完成！可在应用菜单中找到，或运行：xtool"
           EOF
           chmod 755 "$DEB_DIR/DEBIAN/postinst"
           
@@ -376,7 +376,7 @@ jobs:
           cat > "$DEB_DIR/DEBIAN/prerm" << 'EOF'
           #!/bin/bash
           set -e
-          echo "正在卸载万能工具箱..."
+          echo "正在卸载 XTool..."
           EOF
           chmod 755 "$DEB_DIR/DEBIAN/prerm"
           
@@ -563,9 +563,9 @@ jobs:
       - name: 创建 Release 并上传安装包
         uses: softprops/action-gh-release@v2
         with:
-          name: "🎉 万能工具箱 ${{ github.ref_name }}"
+          name: "🎉 XTool ${{ github.ref_name }}"
           body: |
-            ## 万能工具箱 ${{ github.ref_name }}
+            ## XTool ${{ github.ref_name }}
             
             > 一站式桌面工具集，功能丰富、启动快、界面现代、无广告
 
@@ -575,12 +575,12 @@ jobs:
             
             | 平台 | 文件 | 说明 |
             |------|------|------|
-            | 🪟 Windows 安装包 | `universal-toolbox_Setup.exe` | **推荐**，含安装向导、桌面快捷方式 |
-            | 🪟 Windows 单文件 | `universal-toolbox.exe` | 免安装，双击即运行 |
-            | 🐧 Linux DEB 包 | `universal-toolbox_*_amd64.deb` | Ubuntu/Debian 系（推荐） |
-            | 🐧 Linux 压缩包 | `universal-toolbox_linux_amd64.tar.gz` | 通用 Linux，解压即用 |
-            | 🍎 macOS Intel | `universal-toolbox_macos_amd64.dmg` | Intel 芯片 Mac |
-            | 🍎 macOS Apple Silicon | `universal-toolbox_macos_arm64.dmg` | M1/M2/M3 芯片 Mac |
+            | 🪟 Windows 安装包 | `xtool_Setup.exe` | **推荐**，含安装向导、桌面快捷方式 |
+            | 🪟 Windows 单文件 | `xtool.exe` | 免安装，双击即运行 |
+            | 🐧 Linux DEB 包 | `xtool_*_amd64.deb` | Ubuntu/Debian 系（推荐） |
+            | 🐧 Linux 压缩包 | `xtool_linux_amd64.tar.gz` | 通用 Linux，解压即用 |
+            | 🍎 macOS Intel | `xtool_macos_amd64.dmg` | Intel 芯片 Mac |
+            | 🍎 macOS Apple Silicon | `xtool_macos_arm64.dmg` | M1/M2/M3 芯片 Mac |
 
             ---
             
@@ -646,7 +646,7 @@ jobs:
             
             ### 📝 变更日志
             
-            详见 [CHANGELOG.md](https://github.com/MasterPick/universal-toolbox/blob/main/CHANGELOG.md)
+            详见 [CHANGELOG.md](https://github.com/MasterPick/xtool/blob/main/CHANGELOG.md)
           files: |
             release-files/*.exe
             release-files/*.deb

@@ -43,7 +43,7 @@
 
         <!-- 取色按钮 -->
         <button @click="startPick" :disabled="isPicking" class="btn btn-primary text-base px-6 py-3">
-          <EyeDropper v-if="!isPicking" :size="18" />
+          <Pipette v-if="!isPicking" :size="18" />
           <Loader2 v-else :size="18" class="loading-spin" />
           {{ isPicking ? '取色中...' : '开始取色' }}
         </button>
@@ -104,7 +104,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { Pipette, Palette, History, Trash2, EyeDropper, Loader2 } from 'lucide-vue-next'
+import { Pipette, Palette, History, Trash2, Loader2 } from 'lucide-vue-next'
 import { useAppStore } from '@/stores/app'
 
 const appStore = useAppStore()

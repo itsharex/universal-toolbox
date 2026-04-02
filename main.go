@@ -29,7 +29,7 @@ var assets embed.FS
 func main() {
 	// 初始化日志系统
 	logger := applog.NewLogger()
-	logger.Info("万能工具箱启动中...")
+	logger.Info("XTool 启动中...")
 
 	// 初始化数据库
 	database, err := db.Init()
@@ -88,7 +88,7 @@ func main() {
 			DisableWindowIcon:                 false,
 			IsZoomControlEnabled:              false,
 			EnableSwipeGestures:               false,
-			DisableFramelessWindowDecorations: false,  // 禁用系统标题栏装饰
+			DisableFramelessWindowDecorations: true,   // 禁用系统标题栏装饰（避免双标题栏）
 		},
 
 		// 日志级别
