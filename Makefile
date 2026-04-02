@@ -5,10 +5,10 @@
 
 APP_NAME := XTool
 APP_NAME_EN := xtool
-VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "1.0.0")
 BUILD_DIR := build/bin
 
-.PHONY: all dev build-windows build-linux build-macos clean install-deps help
+.PHONY: all dev build build-windows build-installer build-linux build-macos clean install-deps help
 
 # 默认目标：显示帮助
 help:
@@ -16,9 +16,11 @@ help:
 	@echo ""
 	@echo "用法："
 	@echo "  make dev              启动开发模式（热重载）"
-	@echo "  make build-windows    构建 Windows .exe（需要 Windows 环境）"
+	@echo "  make build            构建当前平台"
+	@echo "  make build-windows    构建 Windows EXE"
+	@echo "  make build-installer  构建 Windows 安装包（需要 NSIS）"
 	@echo "  make build-linux      构建 Linux 二进制 + .deb + tar.gz"
-	@echo "  make build-macos      构建 macOS .app + .dmg（需要 macOS 环境）"
+	@echo "  make build-macos      构建 macOS .app + .dmg"
 	@echo "  make all              构建当前平台版本"
 	@echo "  make install-deps     安装构建依赖"
 	@echo "  make clean            清理构建产物"
@@ -39,19 +41,29 @@ dev:
 	wails dev
 
 # 构建当前平台
-all:
+build:
 	@echo "🔨 构建当前平台..."
-	wails build
+	wails build -ldflags "-s -w"
 	@echo "✅ 构建完成：$(BUILD_DIR)/"
 
-# Windows 构建（需要 Windows 环境或交叉编译工具链）
+all: build
+
+# Windows 构建
 build-windows:
 	@echo "🪟 构建 Windows amd64..."
-	wails build -platform windows/amd64 -ldflags "-s -w" -o "$(APP_NAME).exe"
+	@echo "📦 清理旧文件..."
+	rm -rf $(BUILD_DIR)
+	wails build -platform windows/amd64 -ldflags "-s -w" -skipbindings
 	@echo "✅ Windows 构建完成：$(BUILD_DIR)/$(APP_NAME).exe"
-	@echo ""
-	@echo "💡 如需生成 NSIS 安装包，请在 Windows 环境下运行："
-	@echo "   makensis installer.nsi"
+	ls -la $(BUILD_DIR)/
+
+# Windows 安装包（需要安装 NSIS）
+build-installer: build-windows
+	@echo "📦 生成安装包..."
+	@echo "⚠️  需要 NSIS 已安装并添加到 PATH"
+	makensis /DVERSION=$(VERSION) installer.nsi
+	@echo "✅ 安装包生成完成"
+	ls -la XTool_Setup_*.exe 2>/dev/null || echo "❌ 安装包生成失败，请检查 NSIS 是否安装"
 
 # Linux 构建 + .deb 打包
 build-linux:
@@ -84,16 +96,16 @@ _deb-package:
 
 # macOS 构建 + .dmg 打包
 build-macos:
-	@echo "🍎 构建 macOS amd64..."
+	@echo "🍎 构建 macOS..."
 	wails build -platform darwin/amd64 -ldflags "-s -w"
-	@echo "📦 创建 DMG (Intel)..."
+	@echo "📦 创建 DMG..."
 	hdiutil create \
 		-volname "$(APP_NAME)" \
 		-srcfolder "$(BUILD_DIR)/$(APP_NAME).app" \
 		-ov \
 		-format UDZO \
 		-imagekey zlib-level=9 \
-		"$(BUILD_DIR)/$(APP_NAME_EN)_macos_amd64.dmg"
+		"$(BUILD_DIR)/$(APP_NAME_EN)_macos.dmg"
 	@echo "✅ macOS 构建完成"
 	ls -la $(BUILD_DIR)/
 
@@ -101,4 +113,5 @@ build-macos:
 clean:
 	@echo "🧹 清理构建产物..."
 	rm -rf $(BUILD_DIR)/*
+	rm -f XTool_Setup_*.exe
 	@echo "✅ 清理完成"

@@ -1,6 +1,6 @@
 {
   "$schema": "https://wails.io/schemas/config.v2.json",
-  "name": "xtool",
+  "name": "XTool",
   "outputfilename": "XTool",
   "frontend:install": "npm install",
   "frontend:build": "npm run build",
@@ -15,6 +15,6 @@
     "productName": "XTool",
     "productVersion": "1.0.0",
     "copyright": "Copyright © 2026 MasterPick",
-    "comments": "一站式桌面工具集，功能丰富、启动快、界面现代"
+    "comments": "一站式桌面工具集"
   }
 }

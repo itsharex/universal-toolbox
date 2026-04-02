@@ -88,7 +88,7 @@ func main() {
 			DisableWindowIcon:                 false,
 			IsZoomControlEnabled:              false,
 			EnableSwipeGestures:               false,
-			DisableFramelessWindowDecorations: true,   // 禁用系统标题栏装饰（避免双标题栏）
+			DisableFramelessWindowDecorations: false,  // 启用无边框窗口装饰
 		},
 
 		// 日志级别
