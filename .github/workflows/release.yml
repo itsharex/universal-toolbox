@@ -1,9 +1,9 @@
 # GitHub Actions：多平台自动构建与发布工作流
 # 触发条件：推送 v* 格式标签时自动执行
 # 输出：
-#   Windows → XTool_Setup.exe（NSIS 安装包）+ XTool.exe（单文件）
+#   Windows → xtool_Setup.exe（NSIS 安装包）+ xtool.exe（单文件）
 #   Linux   → xtool_linux_amd64.deb + xtool_linux_amd64.tar.gz
-#   macOS   → xtool_macos.dmg
+#   macOS   → xtool_macos_amd64.dmg + xtool_macos_arm64.dmg
 
 name: 🚀 多平台构建与发布
 
@@ -22,6 +22,7 @@ on:
 env:
   GO_VERSION: '1.24'
   NODE_VERSION: '22'
+  WAILS_VERSION: 'v2.12.0'
   APP_NAME: 'XTool'
   APP_NAME_EN: 'xtool'
 
@@ -47,22 +48,64 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
+      - name: 诊断工具链版本
+        shell: pwsh
+        run: |
+          Write-Host "Go: $(go version)"
+          Write-Host "Node: $(node --version)"
+          Write-Host "npm: $(npm --version)"
+
       - name: 整理 Go 模块依赖
+        shell: pwsh
         run: go mod tidy
 
-      - name: 安装 Wails CLI
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+      - name: 安装 Wails CLI ${{ env.WAILS_VERSION }}
+        shell: pwsh
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@${{ env.WAILS_VERSION }}
+
+      - name: 验证 Wails 安装
+        shell: pwsh
+        run: wails version
 
       - name: 安装前端依赖
         working-directory: frontend
+        shell: pwsh
         run: npm install
+
+      - name: 显式生成前端绑定
+        shell: pwsh
+        run: |
+          wails generate bindings
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "wails generate bindings 失败"
+            exit 1
+          }
+          if (-not (Test-Path "frontend/wailsjs/go/models.ts")) {
+            Write-Error "bindings 未生成：frontend/wailsjs/go/models.ts 不存在"
+            exit 1
+          }
+          Write-Host "bindings 生成成功"
 
       - name: 构建 Windows 单文件可执行程序
         shell: pwsh
         run: |
-          # 使用英文文件名构建，避免 CI 环境 ACP 编码问题导致中文路径不可识别
-          wails build -platform windows/amd64 -ldflags "-s" -o "${{ env.APP_NAME_EN }}.exe"
-          Write-Host "构建完成，build\bin 目录内容："
+          $ErrorActionPreference = 'Stop'
+          try {
+            wails build -platform windows/amd64 -ldflags "-s" -o "${{ env.APP_NAME_EN }}.exe"
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "wails build 失败，退出码: $LASTEXITCODE"
+              exit 1
+            }
+            Write-Host "构建完成"
+          } catch {
+            Write-Error "构建异常: $_"
+            exit 1
+          }
+
+      - name: 验证构建产物
+        shell: pwsh
+        run: |
+          Write-Host "build\bin 目录内容："
           Get-ChildItem -Path "build\bin" | Format-Table Name, Length -AutoSize
           $expected = "build\bin\${{ env.APP_NAME_EN }}.exe"
           if (Test-Path $expected) {
@@ -70,7 +113,7 @@ jobs:
             Write-Host "构建成功: $($file.FullName)，大小: $($file.Length) 字节"
           } else {
             Write-Error "构建产物未找到: $expected"
-            Get-ChildItem -Path "build\bin" -Recurse -ErrorAction SilentlyContinue | Format-Table FullName -AutoSize
+            Get-ChildItem -Path "build" -Recurse -ErrorAction SilentlyContinue | Format-Table FullName -AutoSize
             exit 1
           }
 
@@ -84,12 +127,10 @@ jobs:
       - name: 生成 NSIS 安装脚本
         shell: pwsh
         run: |
-          # 确认构建产物存在
           $exeName = "${{ env.APP_NAME_EN }}.exe"
           $exePath = "build\bin\$exeName"
           if (-not (Test-Path $exePath)) {
             Write-Error "Build output not found: $exePath"
-            Get-ChildItem -Path "build\bin" -Recurse -ErrorAction SilentlyContinue | Format-Table FullName -AutoSize
             exit 1
           }
           $fileInfo = Get-Item $exePath
@@ -98,12 +139,10 @@ jobs:
           $version = "${{ github.ref_name }}" -replace '^v', ''
           if (-not $version) { $version = "1.0.0" }
 
-          # 设置 NSIS 变量
           $appName = "${{ env.APP_NAME }}"
           $appNameEn = "${{ env.APP_NAME_EN }}"
           $setupExe = "build\bin\$($appNameEn)_Setup.exe"
 
-          # 使用字符串数组生成 NSIS 脚本（避免 YAML 多行块中的 here-string 缩进问题）
           $nsisLines = @(
             "; XTool NSIS Install Script"
             "; Auto-generated, do not edit manually"
@@ -128,12 +167,12 @@ jobs:
             "!define MUI_ABORTWARNING"
             "!define MUI_ABORTWARNING_TEXT '确定要退出安装吗？'"
             ""
-            "!define MUI_ICON `"C:\Program Files (x86)\NSIS\Contrib\Graphics\Icons\modern-install.ico`""
-            "!define MUI_UNICON `"C:\Program Files (x86)\NSIS\Contrib\Graphics\Icons\modern-uninstall.ico`""
-            "!define MUI_WELCOMEFINISHPAGE_BITMAP `"C:\Program Files (x86)\NSIS\Contrib\Graphics\Wizard\win.bmp`""
+            "!define MUI_ICON `"`$NSISDIR\Contrib\Graphics\Icons\modern-install.ico`""
+            "!define MUI_UNICON `"`$NSISDIR\Contrib\Graphics\Icons\modern-uninstall.ico`""
+            "!define MUI_WELCOMEFINISHPAGE_BITMAP `"`$NSISDIR\Contrib\Graphics\Wizard\win.bmp`""
             "!define MUI_WELCOMEFINISHPAGE_BITMAP_NOSTRETCH"
             "!define MUI_HEADERIMAGE"
-            "!define MUI_HEADERIMAGE_BITMAP `"C:\Program Files (x86)\NSIS\Contrib\Graphics\Header\win.bmp`""
+            "!define MUI_HEADERIMAGE_BITMAP `"`$NSISDIR\Contrib\Graphics\Header\win.bmp`""
             "!define MUI_HEADERIMAGE_BITMAP_NOSTRETCH"
             ""
             "!define MUI_COMPONENTSPAGE_NODESC"
@@ -170,16 +209,12 @@ jobs:
             "  File 'README.md'"
             "  File 'LICENSE'"
             ""
-            "  ; Desktop shortcut"
             "  CreateShortcut '`$DESKTOP\${APP_NAME}.lnk' '`$INSTDIR\${APP_EXE}'"
-            ""
-            "  ; Start menu"
             "  CreateDirectory '`$SMPROGRAMS\${APP_NAME}'"
             "  CreateShortcut '`$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk' '`$INSTDIR\${APP_EXE}'"
             "  CreateShortcut '`$SMPROGRAMS\${APP_NAME}\Uninstall.lnk' '`$INSTDIR\Uninstall.exe'"
             "  CreateShortcut '`$SMPROGRAMS\${APP_NAME}\GitHub 主页.url' '`$https://github.com/MasterPick/xtool'"
             ""
-            "  ; Registry"
             "  WriteRegStr HKLM 'Software\${APP_NAME}' '' '`$INSTDIR'"
             "  WriteRegStr HKLM 'Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}' 'DisplayName' '${APP_NAME}'"
             "  WriteRegStr HKLM 'Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}' 'UninstallString' '`$INSTDIR\Uninstall.exe'"
@@ -190,7 +225,6 @@ jobs:
             "  WriteRegDWORD HKLM 'Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}' 'NoModify' 1"
             "  WriteRegDWORD HKLM 'Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}' 'NoRepair' 1"
             ""
-            "  ; Uninstaller"
             "  WriteUninstaller '`$INSTDIR\Uninstall.exe'"
             "SectionEnd"
             ""
@@ -200,34 +234,29 @@ jobs:
             "  Delete '`$INSTDIR\LICENSE'"
             "  Delete '`$INSTDIR\Uninstall.exe'"
             "  RMDir '`$INSTDIR'"
-            ""
             "  Delete '`$DESKTOP\${APP_NAME}.lnk'"
             "  Delete '`$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk'"
             "  Delete '`$SMPROGRAMS\${APP_NAME}\Uninstall.lnk'"
             "  Delete '`$SMPROGRAMS\${APP_NAME}\GitHub 主页.url'"
             "  RMDir '`$SMPROGRAMS\${APP_NAME}'"
-            ""
             "  DeleteRegKey HKLM 'Software\${APP_NAME}'"
             "  DeleteRegKey HKLM 'Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}'"
             "SectionEnd"
           )
           $nsisScript = $nsisLines -join "`n"
 
-          # 以 UTF-8 BOM 写入（NSIS Unicode 模式需要 BOM 来正确识别 UTF-8）
           $utf8Bom = New-Object System.Text.UTF8Encoding $true
           [System.IO.File]::WriteAllText("$PWD\installer.nsi", $nsisScript, $utf8Bom)
-          Write-Host "NSIS script generated: UTF-8 BOM"
+          Write-Host "NSIS script generated"
 
-          # 验证关键行
           Write-Host "`n===== Key NSIS lines ====="
-          Get-Content "installer.nsi" | Select-String "APP_EXE|File |Unicode" | ForEach-Object { Write-Host $_.Line.Trim() }
+          Get-Content "installer.nsi" | Select-String "APP_EXE|File |Unicode|nsisdir" | ForEach-Object { Write-Host $_.Line.Trim() }
 
       - name: 编译 NSIS 安装包
         shell: pwsh
         run: |
-          # NSIS 已通过 negrutiu/nsis-install action 安装并添加到 PATH
           Write-Host "使用 makensis 编译安装包"
-          makensis /NOCD installer.nsi
+          & makensis /NOCD installer.nsi
           if ($LASTEXITCODE -ne 0) {
             Write-Error "NSIS 编译失败，退出码: $LASTEXITCODE"
             exit 1
@@ -275,6 +304,12 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
+      - name: 诊断工具链版本
+        run: |
+          echo "Go: $(go version)"
+          echo "Node: $(node --version)"
+          echo "npm: $(npm --version)"
+
       - name: 安装 Linux 系统依赖
         run: |
           sudo apt-get update -qq
@@ -290,18 +325,45 @@ jobs:
       - name: 整理 Go 模块依赖
         run: go mod tidy
 
-      - name: 安装 Wails CLI
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+      - name: 安装 Wails CLI ${{ env.WAILS_VERSION }}
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@${{ env.WAILS_VERSION }}
+
+      - name: 验证 Wails 安装
+        run: wails version
 
       - name: 安装前端依赖
         working-directory: frontend
         run: npm install
 
+      - name: 显式生成前端绑定
+        run: |
+          wails generate bindings
+          if [ $? -ne 0 ]; then
+            echo "ERROR: wails generate bindings 失败"
+            exit 1
+          fi
+          if [ ! -f "frontend/wailsjs/go/models.ts" ]; then
+            echo "ERROR: bindings 未生成：frontend/wailsjs/go/models.ts 不存在"
+            exit 1
+          fi
+          echo "bindings 生成成功"
+
       - name: 构建 Linux 可执行文件
         run: |
+          set -e
           wails build -platform linux/amd64 -ldflags "-s" -o "${{ env.APP_NAME_EN }}"
           echo "Linux 构建完成"
           ls -la build/bin/
+
+      - name: 验证构建产物
+        run: |
+          if [ ! -f "build/bin/${{ env.APP_NAME_EN }}" ]; then
+            echo "ERROR: 构建产物未找到: build/bin/${{ env.APP_NAME_EN }}"
+            find build/ -type f 2>/dev/null || true
+            exit 1
+          fi
+          echo "构建产物验证成功"
+          ls -lh build/bin/${{ env.APP_NAME_EN }}
 
       - name: 打包为 tar.gz
         run: |
@@ -314,77 +376,68 @@ jobs:
           VERSION="${{ github.ref_name }}"
           VERSION="${VERSION#v}"
           if [ -z "$VERSION" ]; then VERSION="1.0.0"; fi
-          
-          # 创建 deb 包目录结构
+
           DEB_DIR="${{ env.APP_NAME_EN }}_${VERSION}_amd64"
           mkdir -p "$DEB_DIR/DEBIAN"
           mkdir -p "$DEB_DIR/usr/bin"
           mkdir -p "$DEB_DIR/usr/share/applications"
           mkdir -p "$DEB_DIR/usr/share/doc/${{ env.APP_NAME_EN }}"
-          
-          # 复制可执行文件
+
           cp build/bin/${{ env.APP_NAME_EN }} "$DEB_DIR/usr/bin/"
           chmod +x "$DEB_DIR/usr/bin/${{ env.APP_NAME_EN }}"
-          
-          # 复制文档
+
           cp README.md "$DEB_DIR/usr/share/doc/${{ env.APP_NAME_EN }}/"
           cp LICENSE "$DEB_DIR/usr/share/doc/${{ env.APP_NAME_EN }}/"
-          
-          # 生成 .desktop 文件（应用菜单图标）
-          cat > "$DEB_DIR/usr/share/applications/${{ env.APP_NAME_EN }}.desktop" << EOF
-          [Desktop Entry]
-          Version=${VERSION}
-          Name=XTool
-          Name[zh_CN]=XTool
-          Comment=一站式桌面工具集
-          Comment[zh_CN]=一站式桌面工具集，功能丰富、启动快、界面现代
-          Exec=/usr/bin/${{ env.APP_NAME_EN }}
-          Icon=${{ env.APP_NAME_EN }}
-          Terminal=false
-          Type=Application
-          Categories=Utility;Development;
-          Keywords=toolbox;tools;developer;xtool;
-          StartupNotify=true
-          EOF
-          
-          # 生成 DEBIAN/control 文件
-          cat > "$DEB_DIR/DEBIAN/control" << EOF
-          Package: ${{ env.APP_NAME_EN }}
-          Version: ${VERSION}
-          Section: utils
-          Priority: optional
-          Architecture: amd64
-          Maintainer: MasterPick <masterpickself@outlook.com>
-          Homepage: https://github.com/MasterPick/xtool
-          Description: XTool - 一站式桌面工具集
-           功能丰富的跨平台桌面工具集，包含开发工具、系统工具、
-           日常工具、网络工具等30+实用功能。
-           .
-           技术栈：Wails v2 + Go + Vue3 + TypeScript + TailwindCSS
-          EOF
-          
-          # 生成 postinst 脚本（安装后执行）
-          cat > "$DEB_DIR/DEBIAN/postinst" << 'EOF'
-          #!/bin/bash
-          set -e
-          update-desktop-database /usr/share/applications 2>/dev/null || true
-          echo "XTool 安装完成！可在应用菜单中找到，或运行：xtool"
-          EOF
+
+          cat > "$DEB_DIR/usr/share/applications/${{ env.APP_NAME_EN }}.desktop" << 'DESKTOP_EOF'
+[Desktop Entry]
+Version=${VERSION}
+Name=XTool
+Name[zh_CN]=XTool
+Comment=一站式桌面工具集
+Comment[zh_CN]=一站式桌面工具集，功能丰富、启动快、界面现代
+Exec=/usr/bin/xtool
+Icon=xtool
+Terminal=false
+Type=Application
+Categories=Utility;Development;
+Keywords=toolbox;tools;developer;xtool;
+StartupNotify=true
+DESKTOP_EOF
+
+          cat > "$DEB_DIR/DEBIAN/control" << CONTROL_EOF
+Package: ${{ env.APP_NAME_EN }}
+Version: ${VERSION}
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: MasterPick <masterpickself@outlook.com>
+Homepage: https://github.com/MasterPick/xtool
+Description: XTool - 一站式桌面工具集
+ 功能丰富的跨平台桌面工具集，包含开发工具、系统工具、
+ 日常工具、网络工具等30+实用功能。
+ .
+ 技术栈：Wails v2 + Go + Vue3 + TypeScript + TailwindCSS
+CONTROL_EOF
+
+          cat > "$DEB_DIR/DEBIAN/postinst" << 'POSTINST_EOF'
+#!/bin/bash
+set -e
+update-desktop-database /usr/share/applications 2>/dev/null || true
+echo "XTool 安装完成！可在应用菜单中找到，或运行：xtool"
+POSTINST_EOF
           chmod 755 "$DEB_DIR/DEBIAN/postinst"
-          
-          # 生成 prerm 脚本（卸载前执行）
-          cat > "$DEB_DIR/DEBIAN/prerm" << 'EOF'
-          #!/bin/bash
-          set -e
-          echo "正在卸载 XTool..."
-          EOF
+
+          cat > "$DEB_DIR/DEBIAN/prerm" << 'PRERM_EOF'
+#!/bin/bash
+set -e
+echo "正在卸载 XTool..."
+PRERM_EOF
           chmod 755 "$DEB_DIR/DEBIAN/prerm"
-          
-          # 计算安装大小
+
           INSTALLED_SIZE=$(du -sk "$DEB_DIR" | cut -f1)
           echo "Installed-Size: $INSTALLED_SIZE" >> "$DEB_DIR/DEBIAN/control"
-          
-          # 构建 .deb 包
+
           fakeroot dpkg-deb --build "$DEB_DIR" "build/bin/${{ env.APP_NAME_EN }}_${VERSION}_amd64.deb"
           echo ".deb 包制作完成"
           ls -la build/bin/
@@ -427,42 +480,87 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
+      - name: 诊断工具链版本
+        run: |
+          echo "Go: $(go version)"
+          echo "Node: $(node --version)"
+          echo "npm: $(npm --version)"
+          echo "GOARCH: $GOARCH"
+
       - name: 整理 Go 模块依赖
         run: go mod tidy
 
-      - name: 安装 Wails CLI
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+      - name: 安装 Wails CLI ${{ env.WAILS_VERSION }}
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@${{ env.WAILS_VERSION }}
+
+      - name: 验证 Wails 安装
+        run: wails version
 
       - name: 安装前端依赖
         working-directory: frontend
         run: npm install
+
+      - name: 显式生成前端绑定
+        run: |
+          wails generate bindings
+          if [ $? -ne 0 ]; then
+            echo "ERROR: wails generate bindings 失败"
+            exit 1
+          fi
+          if [ ! -f "frontend/wailsjs/go/models.ts" ]; then
+            echo "ERROR: bindings 未生成"
+            exit 1
+          fi
+          echo "bindings 生成成功"
 
       - name: 构建 macOS Intel (amd64) 应用
         env:
           GOARCH: amd64
           CGO_ENABLED: 1
         run: |
-          wails build -platform darwin/amd64 -ldflags "-s"
-          mv build/bin/*.app build/bin/${{ env.APP_NAME_EN }}_intel.app 2>/dev/null || true
+          set -e
+          # 输出到独立目录避免与 arm64 冲突
+          wails build -platform darwin/amd64 -ldflags "-s" -o "build/bin/${{ env.APP_NAME_EN }}_amd64"
           echo "macOS amd64 构建完成"
           ls -la build/bin/
+
+      - name: 验证 amd64 产物
+        run: |
+          if [ ! -f "build/bin/${{ env.APP_NAME_EN }}_amd64" ]; then
+            echo "ERROR: amd64 构建产物未找到"
+            find build/ -type f 2>/dev/null || true
+            exit 1
+          fi
+          echo "amd64 产物验证成功"
 
       - name: 构建 macOS Apple Silicon (arm64) 应用
         env:
           GOARCH: arm64
           CGO_ENABLED: 1
         run: |
-          wails build -platform darwin/arm64 -ldflags "-s"
-          mv build/bin/*.app build/bin/${{ env.APP_NAME_EN }}_arm64.app 2>/dev/null || true
+          set -e
+          # 输出到独立目录避免覆盖 amd64
+          wails build -platform darwin/arm64 -ldflags "-s" -o "build/bin/${{ env.APP_NAME_EN }}_arm64"
           echo "macOS arm64 构建完成"
           ls -la build/bin/
 
+      - name: 验证 arm64 产物
+        run: |
+          if [ ! -f "build/bin/${{ env.APP_NAME_EN }}_arm64" ]; then
+            echo "ERROR: arm64 构建产物未找到"
+            find build/ -type f 2>/dev/null || true
+            exit 1
+          fi
+          echo "arm64 产物验证成功"
+
       - name: 打包 Intel DMG
         run: |
-          if [ -d "build/bin/${{ env.APP_NAME_EN }}_intel.app" ]; then
-            # 重命名为 .app 用于 DMG 制作
-            cp -R "build/bin/${{ env.APP_NAME_EN }}_intel.app" "build/bin/${{ env.APP_NAME_EN }}.app"
-            
+          if [ -f "build/bin/${{ env.APP_NAME_EN }}_amd64" ]; then
+            # macOS 可执行文件需要包装成 .app 才能制作 DMG
+            mkdir -p "build/bin/${{ env.APP_NAME_EN }}.app/Contents/MacOS"
+            cp "build/bin/${{ env.APP_NAME_EN }}_amd64" "build/bin/${{ env.APP_NAME_EN }}.app/Contents/MacOS/${{ env.APP_NAME_EN }}"
+            chmod +x "build/bin/${{ env.APP_NAME_EN }}.app/Contents/MacOS/${{ env.APP_NAME_EN }}"
+
             hdiutil create \
               -volname "${{ env.APP_NAME_EN }}" \
               -srcfolder "build/bin/${{ env.APP_NAME_EN }}.app" \
@@ -470,19 +568,21 @@ jobs:
               -format UDZO \
               -imagekey zlib-level=9 \
               "build/bin/${{ env.APP_NAME_EN }}_macos_amd64.dmg"
-            
+
             rm -rf "build/bin/${{ env.APP_NAME_EN }}.app"
             echo "Intel DMG 创建完成"
           else
-            echo "WARNING: Intel .app not found, skipping Intel DMG"
-            ls -la build/bin/
+            echo "WARNING: amd64 binary not found, skipping Intel DMG"
+            exit 1
           fi
 
       - name: 打包 Apple Silicon DMG
         run: |
-          if [ -d "build/bin/${{ env.APP_NAME_EN }}_arm64.app" ]; then
-            cp -R "build/bin/${{ env.APP_NAME_EN }}_arm64.app" "build/bin/${{ env.APP_NAME_EN }}.app"
-            
+          if [ -f "build/bin/${{ env.APP_NAME_EN }}_arm64" ]; then
+            mkdir -p "build/bin/${{ env.APP_NAME_EN }}.app/Contents/MacOS"
+            cp "build/bin/${{ env.APP_NAME_EN }}_arm64" "build/bin/${{ env.APP_NAME_EN }}.app/Contents/MacOS/${{ env.APP_NAME_EN }}"
+            chmod +x "build/bin/${{ env.APP_NAME_EN }}.app/Contents/MacOS/${{ env.APP_NAME_EN }}"
+
             hdiutil create \
               -volname "${{ env.APP_NAME_EN }}" \
               -srcfolder "build/bin/${{ env.APP_NAME_EN }}.app" \
@@ -490,12 +590,21 @@ jobs:
               -format UDZO \
               -imagekey zlib-level=9 \
               "build/bin/${{ env.APP_NAME_EN }}_macos_arm64.dmg"
-            
+
             rm -rf "build/bin/${{ env.APP_NAME_EN }}.app"
             echo "Apple Silicon DMG 创建完成"
           else
-            echo "WARNING: ARM64 .app not found, skipping ARM64 DMG"
-            ls -la build/bin/
+            echo "WARNING: arm64 binary not found, skipping ARM64 DMG"
+            exit 1
+          fi
+
+      - name: 验证 DMG 产物
+        run: |
+          echo "DMG 产物列表："
+          ls -lh build/bin/*.dmg
+          if [ ! -f "build/bin/${{ env.APP_NAME_EN }}_macos_amd64.dmg" ] || [ ! -f "build/bin/${{ env.APP_NAME_EN }}_macos_arm64.dmg" ]; then
+            echo "ERROR: DMG 产物缺失"
+            exit 1
           fi
 
       - name: 计算文件哈希值
@@ -520,7 +629,6 @@ jobs:
     name: 📦 创建 GitHub Release
     needs: [build-windows, build-linux, build-macos]
     runs-on: ubuntu-latest
-    # 仅在推送标签时发布（不在手动触发时执行）
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write
@@ -542,10 +650,9 @@ jobs:
       - name: 整理构建产物
         run: |
           mkdir -p release-files
-          # 复制所有安装包到统一目录
           find dist/ -type f \( -name "*.exe" -o -name "*.deb" -o -name "*.dmg" -o -name "*.tar.gz" -o -name "*checksums*" \) \
             -exec cp {} release-files/ \;
-          
+
           echo "========== 待发布文件 =========="
           ls -la release-files/
           echo "================================"
@@ -566,13 +673,13 @@ jobs:
           name: "🎉 XTool ${{ github.ref_name }}"
           body: |
             ## XTool ${{ github.ref_name }}
-            
+
             > 一站式桌面工具集，功能丰富、启动快、界面现代、无广告
 
             ---
-            
+
             ### ⬇️ 下载安装包
-            
+
             | 平台 | 文件 | 说明 |
             |------|------|------|
             | 🪟 Windows 安装包 | `xtool_Setup.exe` | **推荐**，含安装向导、桌面快捷方式 |
@@ -583,22 +690,22 @@ jobs:
             | 🍎 macOS Apple Silicon | `xtool_macos_arm64.dmg` | M1/M2/M3 芯片 Mac |
 
             ---
-            
+
             ### 📋 系统要求
-            
+
             - **Windows**：Windows 10/11（推荐 Win11 获得最佳云母效果）
             - **Linux**：Ubuntu 20.04+ / Debian 10+（需要 WebKit2GTK）
             - **macOS**：macOS 10.15 Catalina 及以上
 
             ---
-            
+
             ### ✨ 主要功能
-            
+
             <details>
             <summary>🛠️ 开发工具（11个）</summary>
-            
+
             - JSON 格式化/压缩/校验/转义
-            - XML / YAML 格式化  
+            - XML / YAML 格式化
             - Base64 编码/解码
             - URL 编码/解码
             - MD5 / SHA1 / SHA256 加密
@@ -609,43 +716,43 @@ jobs:
             - 正则表达式测试
             - 代码片段管理
             </details>
-            
+
             <details>
             <summary>💻 系统工具（4个）</summary>
-            
+
             - 主机信息（CPU/GPU/内存/磁盘）
             - 端口占用查看/一键释放
             - 进程管理
             - 文件批量重命名
             </details>
-            
+
             <details>
             <summary>📱 日常工具（3个）</summary>
-            
+
             - 计算器（标准+科学）
             - 单位换算（长度/重量/温度/速度）
             - 记事本/备忘录
             </details>
-            
+
             <details>
             <summary>🌐 网络工具（4个）</summary>
-            
+
             - Ping 测试
             - 内网 IP 扫描
             - HTTP 接口测试
             - Hosts 文件编辑
             </details>
-            
+
             ---
-            
+
             ### 🔐 文件校验和
-            
+
             所有安装包 SHA256 校验和见 `checksums_all.txt`
-            
+
             ---
-            
+
             ### 📝 变更日志
-            
+
             详见 [CHANGELOG.md](https://github.com/MasterPick/xtool/blob/main/CHANGELOG.md)
           files: |
             release-files/*.exe
