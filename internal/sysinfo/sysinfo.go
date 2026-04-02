@@ -4,7 +4,9 @@ package sysinfo
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -256,4 +258,169 @@ func (s *SysInfo) OpenFileManager(path string) error {
 		cmd = exec.Command("xdg-open", path)
 	}
 	return cmd.Start()
+}
+
+// FileItem 文件信息结构（用于文件列表展示）
+type FileItem struct {
+	Name    string `json:"name"`    // 文件名（含扩展名）
+	Path    string `json:"path"`    // 完整路径
+	Size    int64  `json:"size"`    // 文件大小（字节）
+	IsDir   bool   `json:"isDir"`   // 是否为目录
+	ModTime int64  `json:"modTime"` // 修改时间戳
+	Ext     string `json:"ext"`     // 扩展名
+}
+
+// RenameResult 重命名结果结构
+type RenameResult struct {
+	OldPath string `json:"oldPath"` // 原路径
+	NewPath string `json:"newPath"` // 新路径
+	Success bool   `json:"success"` // 是否成功
+	Error   string `json:"error"`   // 错误信息
+}
+
+// ListDirectory 列出指定目录下的所有文件（不含子目录）
+func (s *SysInfo) ListDirectory(dirPath string) ([]FileItem, error) {
+	entries, err := os.ReadDir(dirPath)
+	if err != nil {
+		return nil, fmt.Errorf("读取目录失败：%v", err)
+	}
+
+	var files []FileItem
+	for _, entry := range entries {
+		info, err := entry.Info()
+		if err != nil {
+			continue // 跳过无法获取信息的文件
+		}
+
+		fullPath := filepath.Join(dirPath, entry.Name())
+		files = append(files, FileItem{
+			Name:    entry.Name(),
+			Path:    fullPath,
+			Size:    info.Size(),
+			IsDir:   entry.IsDir(),
+			ModTime: info.ModTime().Unix(),
+			Ext:     filepath.Ext(entry.Name()),
+		})
+	}
+	return files, nil
+}
+
+// BatchRenameFiles 批量重命名文件
+// oldNewPairs: 形如 "原路径|新路径;原路径|新路径" 的字符串数组
+func (s *SysInfo) BatchRenameFiles(pairs []string) ([]RenameResult, error) {
+	var results []RenameResult
+
+	for _, pair := range pairs {
+		// 分割原路径和新路径
+		parts := strings.Split(pair, "|")
+		if len(parts) != 2 {
+			results = append(results, RenameResult{
+				OldPath: pair,
+				NewPath: "",
+				Success: false,
+				Error:   "路径格式错误",
+			})
+			continue
+		}
+
+		oldPath := strings.TrimSpace(parts[0])
+		newPath := strings.TrimSpace(parts[1])
+
+		// 检查原文件是否存在
+		if _, err := os.Stat(oldPath); err != nil {
+			results = append(results, RenameResult{
+				OldPath: oldPath,
+				NewPath: newPath,
+				Success: false,
+				Error:   fmt.Sprintf("文件不存在或无权限：%v", err),
+			})
+			continue
+		}
+
+		// 检查目标文件是否已存在
+		if _, err := os.Stat(newPath); err == nil {
+			results = append(results, RenameResult{
+				OldPath: oldPath,
+				NewPath: newPath,
+				Success: false,
+				Error:   "目标文件已存在",
+			})
+			continue
+		}
+
+		// 执行重命名
+		if err := os.Rename(oldPath, newPath); err != nil {
+			results = append(results, RenameResult{
+				OldPath: oldPath,
+				NewPath: newPath,
+				Success: false,
+				Error:   fmt.Sprintf("重命名失败：%v", err),
+			})
+			continue
+		}
+
+		results = append(results, RenameResult{
+			OldPath: oldPath,
+			NewPath: newPath,
+			Success: true,
+			Error:   "",
+		})
+	}
+
+	return results, nil
+}
+
+// BatchCopyFiles 批量复制文件（格式：源路径|目标路径）
+func (s *SysInfo) BatchCopyFiles(pairs []string) error {
+	for _, pair := range pairs {
+		parts := strings.Split(pair, "|")
+		if len(parts) != 2 {
+			return fmt.Errorf("路径格式错误：%s", pair)
+		}
+		src, dst := strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
+
+		data, err := os.ReadFile(src)
+		if err != nil {
+			return fmt.Errorf("读取文件失败 %s：%v", src, err)
+		}
+
+		if err := os.WriteFile(dst, data, 0644); err != nil {
+			return fmt.Errorf("写入文件失败 %s：%v", dst, err)
+		}
+	}
+	return nil
+}
+
+// BatchMoveFiles 批量移动文件（本质是重命名到新目录）
+func (s *SysInfo) BatchMoveFiles(pairs []string) ([]RenameResult, error) {
+	return s.BatchRenameFiles(pairs)
+}
+
+// BatchDeleteFiles 批量删除文件
+func (s *SysInfo) BatchDeleteFiles(paths []string) error {
+	for _, path := range paths {
+		if err := os.Remove(path); err != nil {
+			return fmt.Errorf("删除文件失败 %s：%v", path, err)
+		}
+	}
+	return nil
+}
+
+// CopyFile 复制单个文件
+func (s *SysInfo) CopyFile(src, dst string) error {
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return fmt.Errorf("读取文件失败：%v", err)
+	}
+	return os.WriteFile(dst, data, 0644)
+}
+
+// MoveFile 移动单个文件（重命名）
+func (s *SysInfo) MoveFile(src, dst string) error {
+	return os.Rename(src, dst)
+}
+
+// DeleteFile 删除单个文件
+func (s *SysInfo) DeleteFile(path string) error {
+	return os.Remove(path)
 }

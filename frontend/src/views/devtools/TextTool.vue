@@ -271,18 +271,19 @@ function doReplace(all: boolean) {
   replaceCount.value = null
 
   try {
-    const flags = caseSensitive.value ? 'g' : 'gi'
-    if (!all) flags.replace('g', '')
+    // 根据参数正确构建 flags（避免字符串不可变 bug）
+    const baseFlags = caseSensitive.value ? 'g' : 'gi'
+    const flags = all ? baseFlags : baseFlags.replace('g', '')
 
     if (useRegex.value) {
-      const regex = new RegExp(search.value, all ? flags : flags.replace('g', ''))
-      const matches = replaceInput.value.match(new RegExp(search.value, flags))
+      const regex = new RegExp(search.value, flags)
+      const matches = replaceInput.value.match(new RegExp(search.value, baseFlags))
       replaceCount.value = matches ? matches.length : 0
       replaceInput.value = replaceInput.value.replace(regex, replace.value)
     } else {
       const escaped = search.value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-      const regex = new RegExp(escaped, all ? flags : flags.replace('g', ''))
-      const matches = replaceInput.value.match(new RegExp(escaped, flags))
+      const regex = new RegExp(escaped, flags)
+      const matches = replaceInput.value.match(new RegExp(escaped, baseFlags))
       replaceCount.value = matches ? matches.length : 0
       replaceInput.value = replaceInput.value.replace(regex, replace.value)
     }

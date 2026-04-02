@@ -176,15 +176,18 @@
 import { ref, computed } from 'vue'
 import { FolderSearch, FolderOpen, Search, Settings2, Copy, FolderInput, Trash2, Play, Loader2, File as FileIcon } from 'lucide-vue-next'
 import { useAppStore } from '@/stores/app'
+import { ListDirectory, CopyFile, MoveFile, DeleteFile } from '@/../wailsjs/go/sysinfo/SysInfo'
 
 const appStore = useAppStore()
 
-// 文件接口
+// 文件接口（匹配后端 FileItem）
 interface FileItem {
   name: string
   path: string
   size: number
-  modTime: Date
+  isDir: boolean
+  modTime: number
+  ext: string
   selected: boolean
 }
 
@@ -198,17 +201,32 @@ const operation = ref<'copy' | 'move' | 'delete'>('copy')
 const isExecuting = ref(false)
 const logs = ref<Array<{ type: 'info' | 'success' | 'error'; message: string }>>([])
 
-// 过滤后的文件
+// 过滤后的文件（排除目录 + 按扩展名筛选）
 const filteredFiles = computed(() => {
-  if (!searchPattern.value) return files.value
-  const pattern = searchPattern.value.toLowerCase()
-  return files.value.filter(f => f.name.toLowerCase().includes(pattern))
+  let result = files.value.filter(f => !f.isDir)
+
+  // 按文件类型过滤
+  if (fileFilter.value && fileFilter.value !== '*') {
+    const ext = fileFilter.value.replace('*', '')
+    result = result.filter(f => f.name.toLowerCase().endsWith(ext.toLowerCase()))
+  }
+
+  // 按文件名搜索
+  if (searchPattern.value) {
+    const pattern = searchPattern.value.toLowerCase()
+    result = result.filter(f => f.name.toLowerCase().includes(pattern))
+  }
+
+  return result
 })
 
 // 选中数量
-const selectedCount = computed(() => files.value.filter(f => f.selected).length)
-const selectedSize = computed(() => files.value.filter(f => f.selected).reduce((sum, f) => sum + f.size, 0))
-const allSelected = computed(() => files.value.length > 0 && files.value.every(f => f.selected))
+const selectedCount = computed(() => files.value.filter(f => f.selected && !f.isDir).length)
+const selectedSize = computed(() => files.value.filter(f => f.selected && !f.isDir).reduce((sum, f) => sum + f.size, 0))
+const allSelected = computed(() => {
+  const selectable = files.value.filter(f => !f.isDir)
+  return selectable.length > 0 && selectable.every(f => f.selected)
+})
 
 // 是否可执行
 const canExecute = computed(() => {
@@ -218,71 +236,108 @@ const canExecute = computed(() => {
   return true
 })
 
-// 选择源目录（模拟，实际需要后端支持）
-function selectSourceDir() {
-  // 实际项目中需要调用后端的文件选择对话框
-  const dir = prompt('请输入目录路径:', sourceDir.value || 'C:\\')
-  if (dir) sourceDir.value = dir
+// 选择源目录
+async function selectSourceDir() {
+  const dir = prompt('请输入目录路径（绝对路径）：', sourceDir.value || 'C:\\Users')
+  if (!dir) return
+  sourceDir.value = dir
+  logs.value = []
+  await scanFiles()
 }
 
 // 选择目标目录
 function selectTargetDir() {
-  const dir = prompt('请输入目标目录路径:', targetDir.value || sourceDir.value)
+  const dir = prompt('请输入目标目录路径：', targetDir.value || sourceDir.value)
   if (dir) targetDir.value = dir
 }
 
-// 扫描文件（模拟）
-function scanFiles() {
-  // 实际项目中需要调用后端扫描
-  // 这里模拟一些文件
-  files.value = [
-    { name: 'document.pdf', path: `${sourceDir.value}/document.pdf`, size: 1024000, modTime: new Date(), selected: false },
-    { name: 'image.jpg', path: `${sourceDir.value}/image.jpg`, size: 512000, modTime: new Date(), selected: false },
-    { name: 'data.xlsx', path: `${sourceDir.value}/data.xlsx`, size: 256000, modTime: new Date(), selected: false },
-    { name: 'report.docx', path: `${sourceDir.value}/report.docx`, size: 128000, modTime: new Date(), selected: false },
-    { name: 'backup.zip', path: `${sourceDir.value}/backup.zip`, size: 2048000, modTime: new Date(), selected: false },
-  ]
-  appStore.showToast('success', `扫描完成，共 ${files.value.length} 个文件`)
+// 扫描文件（真实调用后端 API）
+async function scanFiles() {
+  if (!sourceDir.value) {
+    appStore.showToast('warning', '请先选择目录')
+    return
+  }
+
+  logs.value = []
+  logs.value.push({ type: 'info', message: `正在扫描: ${sourceDir.value}` })
+
+  try {
+    const entries = await ListDirectory(sourceDir.value)
+    files.value = entries.map((e: any) => ({
+      name: e.name,
+      path: e.path,
+      size: e.size,
+      isDir: e.isDir,
+      modTime: e.modTime,
+      ext: e.ext,
+      selected: false,
+    }))
+
+    const count = filteredFiles.value.length
+    logs.value.push({ type: 'success', message: `扫描完成，共 ${count} 个文件` })
+    appStore.showToast('success', `已加载 ${count} 个文件`)
+  } catch (err) {
+    logs.value.push({ type: 'error', message: `扫描失败: ${err}` })
+    appStore.showToast('error', `扫描失败：${err}`)
+  }
 }
 
 // 全选/取消
 function toggleSelectAll() {
   const newState = !allSelected.value
-  files.value.forEach(f => f.selected = newState)
+  files.value.forEach(f => {
+    if (!f.isDir) f.selected = newState
+  })
 }
 
-// 执行操作
+// 执行操作（复制/移动/删除）
 async function executeOperation() {
   if (!canExecute.value) return
+
+  const selectedFiles = files.value.filter(f => f.selected && !f.isDir)
+  if (!confirm(`确定要${operation.value === 'copy' ? '复制' : operation.value === 'move' ? '移动' : '删除'}这 ${selectedFiles.length} 个文件吗？`)) {
+    return
+  }
 
   isExecuting.value = true
   logs.value = []
 
-  const selectedFiles = files.value.filter(f => f.selected)
+  let success = 0
+  let failed = 0
 
   for (const file of selectedFiles) {
     try {
-      // 模拟操作（实际需要后端支持）
-      await new Promise(r => setTimeout(r, 100))
-
       if (operation.value === 'copy') {
-        logs.value.push({ type: 'success', message: `✓ 复制: ${file.name}` })
+        // 复制：源路径 → 目标完整路径
+        const destPath = `${targetDir.value}\\${file.name}`.replace(/\\\\+/g, '\\')
+        await CopyFile(file.path, destPath)
+        logs.value.push({ type: 'success', message: `✓ 复制: ${file.name} → ${destPath}` })
       } else if (operation.value === 'move') {
-        logs.value.push({ type: 'success', message: `✓ 移动: ${file.name}` })
+        const destPath = `${targetDir.value}\\${file.name}`.replace(/\\\\+/g, '\\')
+        await MoveFile(file.path, destPath)
+        logs.value.push({ type: 'success', message: `✓ 移动: ${file.name} → ${destPath}` })
       } else {
+        await DeleteFile(file.path)
         logs.value.push({ type: 'success', message: `✓ 删除: ${file.name}` })
       }
+      success++
     } catch (err) {
       logs.value.push({ type: 'error', message: `✗ 失败: ${file.name} - ${err}` })
+      failed++
     }
   }
 
   isExecuting.value = false
-  appStore.showToast('success', `操作完成，处理 ${selectedFiles.length} 个文件`)
 
-  // 如果是删除或移动，从列表移除
+  if (failed === 0) {
+    appStore.showToast('success', `操作完成，${success} 个文件处理成功`)
+  } else {
+    appStore.showToast('warning', `完成，${success} 成功，${failed} 失败`)
+  }
+
+  // 删除或移动后刷新列表
   if (operation.value === 'delete' || operation.value === 'move') {
-    files.value = files.value.filter(f => !f.selected)
+    await scanFiles()
   }
 }
 
@@ -294,9 +349,22 @@ function formatSize(bytes: number): string {
 }
 
 // 格式化日期
-function formatDate(date: Date): string {
-  return date.toLocaleDateString() + ' ' + date.toLocaleTimeString().slice(0, 5)
+function formatDate(timestamp: number): string {
+  if (!timestamp) return '-'
+  return new Date(timestamp * 1000).toLocaleDateString()
 }
+
+// 声明批量操作 API
+declare global {
+  interface Window {
+    __batch: {
+      BatchCopy: (pair: string) => Promise<void>
+      BatchMove: (pair: string) => Promise<void>
+      BatchDelete: (path: string) => Promise<void>
+    }
+  }
+}
+</script>
 </script>
 
 <style scoped>

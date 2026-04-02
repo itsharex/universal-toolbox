@@ -54,6 +54,9 @@
 
     <!-- 全局通知 Toast -->
     <ToastContainer />
+
+    <!-- 全局搜索弹窗 -->
+    <SearchModal />
   </div>
 </template>
 
@@ -63,6 +66,7 @@ import { RouterView } from 'vue-router'
 import { Minus, Square, X } from 'lucide-vue-next'
 import SideNav from '@/components/SideNav.vue'
 import ToastContainer from '@/components/ToastContainer.vue'
+import SearchModal from '@/components/SearchModal.vue'
 import { useAppStore } from '@/stores/app'
 import { WindowMinimise, WindowToggleMaximise, Quit } from '../wailsjs/runtime/runtime'
 

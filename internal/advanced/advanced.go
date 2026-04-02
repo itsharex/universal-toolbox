@@ -107,9 +107,9 @@ func (a *AdvancedTools) GetDefaultShortcuts() []ShortcutConfig {
 // GetAppVersion 获取应用版本信息
 func (a *AdvancedTools) GetAppVersion() map[string]string {
 	return map[string]string{
-		"version":   "1.0.0",
-		"buildDate": "2026-03-31",
+		"version":   "1.1.0",
+		"buildDate": "2026-04-02",
 		"author":    "MasterPick",
-		"repo":      "https://github.com/MasterPick/universal-toolbox",
+		"repo":      "https://github.com/MasterPick/xtool",
 	}
 }

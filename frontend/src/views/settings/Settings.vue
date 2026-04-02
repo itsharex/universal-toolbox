@@ -66,10 +66,13 @@
       <div class="card">
         <div class="font-semibold mb-3 flex items-center gap-2"><Info :size="16"/>关于</div>
         <div class="space-y-1 text-sm opacity-70">
-          <div>版本：<span class="font-mono text-primary-400">v1.0.0</span></div>
+          <div>版本：<span class="font-mono text-primary-400">v1.1.0</span></div>
           <div>作者：<span class="text-primary-400">MasterPick</span></div>
           <div>技术栈：<span class="font-mono">Wails v2 + Go + Vue3 + TypeScript</span></div>
-          <div>开源：<a href="https://github.com/MasterPick/universal-toolbox" class="text-primary-400 underline">GitHub</a></div>
+          <div>开源：
+            <a href="https://github.com/MasterPick/xtool" class="text-primary-400 underline" target="_blank">GitHub</a>
+            · <a href="https://github.com/MasterPick/xtool/releases" class="text-primary-400 underline" target="_blank">Releases</a>
+          </div>
         </div>
       </div>
     </div>

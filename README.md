@@ -4,10 +4,10 @@
 
 **一站式桌面工具集**
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue?style=flat-square)
+![Version](https://img.shields.io/badge/version-1.1.0-blue?style=flat-square)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-brightgreen?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
-![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?style=flat-square)
+![Go](https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat-square)
 ![Vue](https://img.shields.io/badge/Vue-3.4+-42b883?style=flat-square)
 
 功能丰富 · 启动极快 · 界面现代 · 动效流畅 · 完全本地
@@ -38,7 +38,7 @@
 | macOS (Intel) | `xtool_macos_intel.dmg` |
 | macOS (Apple Silicon) | `xtool_macos_arm64.dmg` |
 
-> 前往 [Releases](https://github.com/MasterPick/universal-toolbox/releases) 下载最新版本
+> 前往 [Releases](https://github.com/MasterPick/xtool/releases) 下载最新版本
 
 ---
 
@@ -127,7 +127,7 @@ XTool
 
 ### 环境要求
 
-- Go 1.22+
+- Go 1.24+
 - Node.js 22+
 - Wails CLI v2.12+
 
@@ -135,8 +135,8 @@ XTool
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/MasterPick/universal-toolbox.git
-cd universal-toolbox
+git clone https://github.com/MasterPick/xtool.git
+cd xtool
 
 # 2. 安装 Wails CLI
 go install github.com/wailsapp/wails/v2/cmd/wails@latest
@@ -154,7 +154,7 @@ wails build
 ### 项目结构
 
 ```
-universal-toolbox/
+xtool/
 ├── main.go                 # 应用入口
 ├── internal/               # Go 后端模块
 │   ├── devtools/           # 开发工具模块
