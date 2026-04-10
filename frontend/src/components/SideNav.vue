@@ -148,7 +148,7 @@ import {
   Calculator, ArrowLeftRight, StickyNote,
   Signal, Radar, Globe, Globe2, Server,
   Database, FileCode, Lock, Trash2, Clipboard, KeyRound, SearchCode, Gauge,
-  AlignLeft, FileInput,
+  AlignLeft, FileInput, Timer,
 } from 'lucide-vue-next'
 import { useAppStore } from '@/stores/app'
 
@@ -192,7 +192,7 @@ const iconMap: Record<string, any> = {
   Calculator, ArrowLeftRight, StickyNote,
   Signal, Radar, Globe, Globe2, Server, Settings,
   Database, FileCode, Lock, Trash2, Clipboard, KeyRound, SearchCode, Gauge,
-  AlignLeft, FileInput,
+  AlignLeft, FileInput, Timer,
 }
 const getIcon = (name: string) => iconMap[name] || FileText
 
@@ -235,6 +235,7 @@ const navGroups = [
       { path: '/sysinfo/filebatch',   label: '文件批量处理', icon: 'FolderSearch' },
       { path: '/sysinfo/diskcleaner', label: '磁盘清理',     icon: 'Trash2' },
       { path: '/sysinfo/clipboard',   label: '剪贴板管理',   icon: 'Clipboard' },
+      { path: '/sysinfo/cron',        label: '定时任务',     icon: 'Timer' },
     ],
   },
   {

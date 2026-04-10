@@ -874,3 +874,294 @@ body::before {
 .light * {
   scrollbar-color: rgba(0, 0, 0, 0.12) transparent;
 }
+
+/* ============ 搜索弹窗 ============ */
+
+.search-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 15vh;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.light .search-modal-overlay {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.search-modal {
+  width: 520px;
+  max-width: 90vw;
+  max-height: 420px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+.light .search-modal {
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+}
+
+/* 搜索输入框 */
+.search-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.search-input-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 15px;
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+.search-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+/* 搜索结果区域 */
+.search-results {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px;
+  max-height: 280px;
+}
+
+.search-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+}
+
+.search-hint-text {
+  font-size: 13px;
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.search-quick-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* 搜索结果项 */
+.search-result-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.12s ease;
+  user-select: none;
+}
+
+.search-result-item:hover,
+.search-result-item.active {
+  background: var(--bg-hover);
+}
+
+.search-result-item.active {
+  background: var(--bg-active);
+}
+
+.search-result-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.search-result-item:hover .search-result-icon,
+.search-result-item.active .search-result-icon {
+  color: var(--accent);
+  opacity: 1;
+}
+
+.search-result-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.search-result-name {
+  font-size: 13px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.search-result-category {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-active);
+  padding: 1px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.search-result-arrow {
+  color: var(--text-muted);
+  opacity: 0;
+  flex-shrink: 0;
+  transition: opacity 0.12s ease;
+}
+
+.search-result-item:hover .search-result-arrow,
+.search-result-item.active .search-result-arrow {
+  opacity: 0.5;
+}
+
+/* 搜索底部提示 */
+.search-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.search-footer-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+/* ============ 空状态 ============ */
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  gap: 8px;
+}
+
+.empty-state-icon {
+  color: var(--text-muted);
+  opacity: 0.25;
+  margin-bottom: 4px;
+}
+
+.empty-state-text {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin: 0;
+  opacity: 0.6;
+}
+
+.empty-state-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
+  opacity: 0.35;
+}
+
+/* ============ 状态指示灯 ============ */
+
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.status-dot::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  animation: statusDotPulse 2s ease-in-out infinite;
+}
+
+.status-dot.green {
+  background: var(--success);
+}
+
+.status-dot.green::after {
+  background: var(--success);
+  opacity: 0.3;
+}
+
+.status-dot.gray {
+  background: var(--text-muted);
+}
+
+.status-dot.gray::after {
+  display: none;
+}
+
+.status-dot.red {
+  background: var(--danger);
+}
+
+.status-dot.red::after {
+  background: var(--danger);
+  opacity: 0.3;
+}
+
+@keyframes statusDotPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.3;
+  }
+  50% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+
+/* ============ 键盘快捷键标签 ============ */
+
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: var(--bg-active);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-family: "JetBrains Mono", "Cascadia Code", "Fira Code", "SF Mono", monospace;
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+  user-select: none;
+}

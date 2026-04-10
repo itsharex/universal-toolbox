@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/shirou/gopsutil/v3/cpu"
@@ -21,6 +22,7 @@ import (
 	"github.com/shirou/gopsutil/v3/mem"
 	psnet "github.com/shirou/gopsutil/v3/net"
 	"github.com/shirou/gopsutil/v3/process"
+	"github.com/google/uuid"
 )
 
 // SysInfo 系统工具结构体（Wails 绑定到前端）
@@ -927,4 +929,544 @@ func copyDir(src, dst string) error {
 	}
 
 	return nil
+}
+
+// ============================================================
+// CRON 定时任务管理工具
+// ============================================================
+
+// ToolResult 通用工具结果结构
+type ToolResult struct {
+	Success bool   `json:"success"`
+	Data    string `json:"data,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+// CronJob 定时任务结构
+type CronJob struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Spec        string `json:"spec"`        // cron 表达式，如 "*/5 * * * *"
+	Command     string `json:"command"`     // 要执行的命令
+	Description string `json:"description"` // 描述
+	Enabled     bool   `json:"enabled"`
+	LastRun     string `json:"lastRun"`     // 上次执行时间
+	NextRun     string `json:"nextRun"`     // 下次执行时间
+	Status      string `json:"status"`      // running/stopped/error
+	RunCount    int64  `json:"runCount"`    // 执行次数
+}
+
+// CronJobResult 定时任务结果
+type CronJobResult struct {
+	Success bool      `json:"success"`
+	Data    []CronJob `json:"data,omitempty"`
+	Error   string    `json:"error,omitempty"`
+}
+
+// CronExprResult cron 表达式解析结果
+type CronExprResult struct {
+	Success bool     `json:"success"`
+	Description string `json:"description"` // 人类可读描述
+	NextRuns []string `json:"nextRuns"`     // 接下来5次执行时间
+	Error   string   `json:"error,omitempty"`
+}
+
+// CronParser cron 表达式解析器
+type CronParser struct {
+	Minute   []int
+	Hour     []int
+	Day      []int
+	Month    []int
+	Weekday  []int
+}
+
+// cronJobsMap 全局定时任务存储
+var (
+	cronJobsMap = make(map[string]*CronJob)
+	cronMutex   sync.RWMutex
+	cronTimers  = make(map[string]*time.Timer)
+)
+
+// parseField 解析 cron 字段
+func parseField(field string, min, max int) ([]int, error) {
+	var values []int
+
+	if field == "*" {
+		for i := min; i <= max; i++ {
+			values = append(values, i)
+		}
+		return values, nil
+	}
+
+	// 处理 */n 格式
+	if strings.HasPrefix(field, "*/") {
+		step, err := strconv.Atoi(field[2:])
+		if err != nil {
+			return nil, fmt.Errorf("无效的步长: %s", field)
+		}
+		for i := min; i <= max; i += step {
+			values = append(values, i)
+		}
+		return values, nil
+	}
+
+	// 处理逗号分隔的列表
+	parts := strings.Split(field, ",")
+	for _, part := range parts {
+		// 处理范围 n-m
+		if strings.Contains(part, "-") {
+			rangeParts := strings.Split(part, "-")
+			if len(rangeParts) != 2 {
+				return nil, fmt.Errorf("无效的范围: %s", part)
+			}
+			start, err := strconv.Atoi(rangeParts[0])
+			if err != nil {
+				return nil, fmt.Errorf("无效的起始值: %s", rangeParts[0])
+			}
+			end, err := strconv.Atoi(rangeParts[1])
+			if err != nil {
+				return nil, fmt.Errorf("无效的结束值: %s", rangeParts[1])
+			}
+			for i := start; i <= end; i++ {
+				values = append(values, i)
+			}
+		} else {
+			// 单个值
+			val, err := strconv.Atoi(part)
+			if err != nil {
+				return nil, fmt.Errorf("无效的值: %s", part)
+			}
+			values = append(values, val)
+		}
+	}
+
+	// 验证范围
+	for _, val := range values {
+		if val < min || val > max {
+			return nil, fmt.Errorf("值 %d 超出范围 [%d, %d]", val, min, max)
+		}
+	}
+
+	return values, nil
+}
+
+// parseCronExpr 解析 cron 表达式
+func parseCronExpr(expr string) (*CronParser, error) {
+	parts := strings.Fields(expr)
+	if len(parts) != 5 {
+		return nil, fmt.Errorf("cron 表达式必须包含5个字段: 分 时 日 月 星期")
+	}
+
+	parser := &CronParser{}
+
+	var err error
+	parser.Minute, err = parseField(parts[0], 0, 59)
+	if err != nil {
+		return nil, fmt.Errorf("分钟字段错误: %v", err)
+	}
+
+	parser.Hour, err = parseField(parts[1], 0, 23)
+	if err != nil {
+		return nil, fmt.Errorf("小时字段错误: %v", err)
+	}
+
+	parser.Day, err = parseField(parts[2], 1, 31)
+	if err != nil {
+		return nil, fmt.Errorf("日字段错误: %v", err)
+	}
+
+	parser.Month, err = parseField(parts[3], 1, 12)
+	if err != nil {
+		return nil, fmt.Errorf("月字段错误: %v", err)
+	}
+
+	parser.Weekday, err = parseField(parts[4], 0, 6) // 0=周日, 6=周六
+	if err != nil {
+		return nil, fmt.Errorf("星期字段错误: %v", err)
+	}
+
+	return parser, nil
+}
+
+// getNextRunTime 获取下次执行时间
+func (p *CronParser) getNextRunTime(from time.Time) time.Time {
+	// 从下一分钟开始检查
+	t := from.Add(time.Minute).Truncate(time.Minute)
+
+	// 最多检查未来 4 年
+	maxIterations := 365 * 4 * 24 * 60
+
+	for i := 0; i < maxIterations; i++ {
+		minute := t.Minute()
+		hour := t.Hour()
+		day := t.Day()
+		month := int(t.Month())
+		weekday := int(t.Weekday())
+
+		// 检查所有字段是否匹配
+		minuteMatch := false
+		for _, m := range p.Minute {
+			if m == minute {
+				minuteMatch = true
+				break
+			}
+		}
+
+		hourMatch := false
+		for _, h := range p.Hour {
+			if h == hour {
+				hourMatch = true
+				break
+			}
+		}
+
+		dayMatch := false
+		for _, d := range p.Day {
+			if d == day {
+				dayMatch = true
+				break
+			}
+		}
+
+		monthMatch := false
+		for _, m := range p.Month {
+			if m == month {
+				monthMatch = true
+				break
+			}
+		}
+
+		weekdayMatch := false
+		for _, w := range p.Weekday {
+			if w == weekday {
+				weekdayMatch = true
+				break
+			}
+		}
+
+		// 如果所有字段都匹配，返回这个时间
+		if minuteMatch && hourMatch && dayMatch && monthMatch && weekdayMatch {
+			return t
+		}
+
+		// 否则，跳到下一分钟
+		t = t.Add(time.Minute)
+	}
+
+	// 如果找不到，返回一个很远的时间
+	return from.AddDate(4, 0, 0)
+}
+
+// getCronDescription 获取 cron 表达式的人类可读描述
+func getCronDescription(parser *CronParser) string {
+	desc := ""
+
+	// 分钟描述
+	if len(parser.Minute) == 60 {
+		desc += "每分钟"
+	} else if len(parser.Minute) == 1 {
+		desc += fmt.Sprintf("%d分", parser.Minute[0])
+	} else {
+		desc += fmt.Sprintf("%d个分钟", len(parser.Minute))
+	}
+
+	// 小时描述
+	if len(parser.Hour) == 24 {
+		desc += "每小时"
+	} else if len(parser.Hour) == 1 {
+		desc += fmt.Sprintf("%d时", parser.Hour[0])
+	} else {
+		desc += fmt.Sprintf("%d个小时", len(parser.Hour))
+	}
+
+	// 日描述
+	if len(parser.Day) == 31 {
+		desc += "每天"
+	} else if len(parser.Day) == 1 {
+		desc += fmt.Sprintf("每月%d日", parser.Day[0])
+	} else {
+		desc += fmt.Sprintf("每月%d个日", len(parser.Day))
+	}
+
+	// 月描述
+	if len(parser.Month) == 12 {
+		// 每月，不添加描述
+	} else if len(parser.Month) == 1 {
+		monthNames := []string{"", "1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"}
+		desc += monthNames[parser.Month[0]]
+	} else {
+		desc += fmt.Sprintf("%d个月", len(parser.Month))
+	}
+
+	// 星期描述
+	if len(parser.Weekday) == 7 {
+		// 每天，不添加描述
+	} else if len(parser.Weekday) == 1 {
+		weekdayNames := []string{"周日", "周一", "周二", "周三", "周四", "周五", "周六"}
+		desc += weekdayNames[parser.Weekday[0]]
+	} else {
+		desc += fmt.Sprintf("%d个星期", len(parser.Weekday))
+	}
+
+	desc += "执行"
+
+	return desc
+}
+
+// ParseCronExpr 解析 cron 表达式，返回人类可读描述和下次5次执行时间
+func (s *SysInfo) ParseCronExpr(expr string) CronExprResult {
+	parser, err := parseCronExpr(expr)
+	if err != nil {
+		return CronExprResult{
+			Success: false,
+			Error:   err.Error(),
+		}
+	}
+
+	description := getCronDescription(parser)
+
+	// 计算接下来5次执行时间
+	now := time.Now()
+	var nextRuns []string
+	for i := 0; i < 5; i++ {
+		if i > 0 {
+			// 从上一次执行时间开始计算
+			lastRun, _ := time.Parse("2006-01-02 15:04:05", nextRuns[i-1])
+			now = lastRun
+		}
+		nextTime := parser.getNextRunTime(now)
+		nextRuns = append(nextRuns, nextTime.Format("2006-01-02 15:04:05"))
+	}
+
+	return CronExprResult{
+		Success:     true,
+		Description: description,
+		NextRuns:    nextRuns,
+	}
+}
+
+// GetCronJobs 获取所有定时任务列表
+func (s *SysInfo) GetCronJobs() CronJobResult {
+	cronMutex.RLock()
+	defer cronMutex.RUnlock()
+
+	jobs := make([]CronJob, 0, len(cronJobsMap))
+	for _, job := range cronJobsMap {
+		jobs = append(jobs, *job)
+	}
+
+	return CronJobResult{
+		Success: true,
+		Data:    jobs,
+	}
+}
+
+// AddCronJob 添加定时任务
+func (s *SysInfo) AddCronJob(name, spec, command, description string) CronJobResult {
+	// 验证 cron 表达式
+	parser, err := parseCronExpr(spec)
+	if err != nil {
+		return CronJobResult{
+			Success: false,
+			Error:   fmt.Sprintf("无效的 cron 表达式: %v", err),
+		}
+	}
+
+	// 生成唯一 ID
+	id := uuid.New().String()
+
+	// 计算下次执行时间
+	now := time.Now()
+	nextRun := parser.getNextRunTime(now)
+
+	job := &CronJob{
+		ID:          id,
+		Name:        name,
+		Spec:        spec,
+		Command:     command,
+		Description: description,
+		Enabled:     true,
+		LastRun:     "",
+		NextRun:     nextRun.Format("2006-01-02 15:04:05"),
+		Status:      "stopped",
+		RunCount:    0,
+	}
+
+	cronMutex.Lock()
+	cronJobsMap[id] = job
+	cronMutex.Unlock()
+
+	// 启动定时任务
+	s.startCronJob(job)
+
+	return CronJobResult{
+		Success: true,
+		Data:    []CronJob{*job},
+	}
+}
+
+// RemoveCronJob 删除定时任务
+func (s *SysInfo) RemoveCronJob(id string) CronJobResult {
+	cronMutex.Lock()
+	defer cronMutex.Unlock()
+
+	job, exists := cronJobsMap[id]
+	if !exists {
+		return CronJobResult{
+			Success: false,
+			Error:   fmt.Sprintf("定时任务不存在: %s", id),
+		}
+	}
+
+	// 停止定时器
+	if timer, ok := cronTimers[id]; ok {
+		timer.Stop()
+		delete(cronTimers, id)
+	}
+
+	delete(cronJobsMap, id)
+
+	return CronJobResult{
+		Success: true,
+		Data:    []CronJob{*job},
+	}
+}
+
+// ToggleCronJob 启用/禁用定时任务
+func (s *SysInfo) ToggleCronJob(id string, enabled bool) CronJobResult {
+	cronMutex.Lock()
+	defer cronMutex.Unlock()
+
+	job, exists := cronJobsMap[id]
+	if !exists {
+		return CronJobResult{
+			Success: false,
+			Error:   fmt.Sprintf("定时任务不存在: %s", id),
+		}
+	}
+
+	job.Enabled = enabled
+
+	if enabled {
+		// 启动定时任务
+		s.startCronJob(job)
+		job.Status = "running"
+	} else {
+		// 停止定时任务
+		if timer, ok := cronTimers[id]; ok {
+			timer.Stop()
+			delete(cronTimers, id)
+		}
+		job.Status = "stopped"
+	}
+
+	return CronJobResult{
+		Success: true,
+		Data:    []CronJob{*job},
+	}
+}
+
+// RunCronJobNow 立即执行一次定时任务
+func (s *SysInfo) RunCronJobNow(id string) CronJobResult {
+	cronMutex.Lock()
+	job, exists := cronJobsMap[id]
+	if !exists {
+		cronMutex.Unlock()
+		return CronJobResult{
+			Success: false,
+			Error:   fmt.Sprintf("定时任务不存在: %s", id),
+		}
+	}
+	cronMutex.Unlock()
+
+	// 执行命令
+	result := s.executeCommand(job.Command)
+
+	// 更新任务信息
+	cronMutex.Lock()
+	job.LastRun = time.Now().Format("2006-01-02 15:04:05")
+	job.RunCount++
+	if result {
+		job.Status = "running"
+	} else {
+		job.Status = "error"
+	}
+	cronMutex.Unlock()
+
+	return CronJobResult{
+		Success: true,
+		Data:    []CronJob{*job},
+	}
+}
+
+// startCronJob 启动定时任务
+func (s *SysInfo) startCronJob(job *CronJob) {
+	parser, err := parseCronExpr(job.Spec)
+	if err != nil {
+		return
+	}
+
+	now := time.Now()
+	nextRun := parser.getNextRunTime(now)
+	job.NextRun = nextRun.Format("2006-01-02 15:04:05")
+
+	duration := time.Until(nextRun)
+	if duration < 0 {
+		duration = 0
+	}
+
+	// 创建定时器
+	timer := time.AfterFunc(duration, func() {
+		// 执行命令
+		result := s.executeCommand(job.Command)
+
+		// 更新任务信息
+		cronMutex.Lock()
+		job.LastRun = time.Now().Format("2006-01-02 15:04:05")
+		job.RunCount++
+		if result {
+			job.Status = "running"
+		} else {
+			job.Status = "error"
+		}
+
+		// 如果任务仍然启用，重新调度
+		if job.Enabled {
+			cronMutex.Unlock()
+			s.startCronJob(job)
+		} else {
+			cronMutex.Unlock()
+		}
+	})
+
+	cronMutex.Lock()
+	cronTimers[job.ID] = timer
+	job.Status = "running"
+	cronMutex.Unlock()
+}
+
+// executeCommand 执行命令
+func (s *SysInfo) executeCommand(command string) bool {
+	// 简单的命令执行，支持 shell 命令
+	var cmd *exec.Cmd
+
+	// 根据操作系统选择 shell
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("cmd", "/c", command)
+	default:
+		cmd = exec.Command("sh", "-c", command)
+	}
+
+	// 执行命令
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		// 记录错误日志（实际应用中应该记录到日志文件）
+		fmt.Printf("命令执行失败: %s, 错误: %v, 输出: %s\n", command, err, string(output))
+		return false
+	}
+
+	// 记录成功日志
+	fmt.Printf("命令执行成功: %s, 输出: %s\n", command, string(output))
+	return true
 }

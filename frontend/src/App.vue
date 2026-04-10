@@ -24,7 +24,7 @@
       <div
         class="search-trigger flex items-center gap-2 px-3 py-1.5 rounded-lg cursor-pointer mx-4"
         style="--wails-draggable: no-drag"
-        @click="appStore.searchVisible = true"
+        @click="openSearch"
       >
         <Search :size="14" class="opacity-40" />
         <span class="text-xs opacity-35 whitespace-nowrap">搜索工具...</span>
@@ -118,12 +118,95 @@
 
     <!-- 全局通知 Toast -->
     <ToastContainer />
+
+    <!-- ====== 全局搜索弹窗 ====== -->
+    <Teleport to="body">
+      <Transition name="search-modal">
+        <div
+          v-if="searchVisible"
+          class="search-modal-overlay"
+          @mousedown.self="closeSearch"
+        >
+          <div class="search-modal">
+            <!-- 搜索输入框 -->
+            <div class="search-input-wrapper">
+              <Search :size="18" class="search-input-icon" />
+              <input
+                ref="searchInputRef"
+                v-model="searchQuery"
+                class="search-input"
+                placeholder="搜索工具名称或描述..."
+                @keydown.down.prevent="moveDown"
+                @keydown.up.prevent="moveUp"
+                @keydown.enter.prevent="selectCurrent"
+                @keydown.esc.prevent="closeSearch"
+              />
+              <kbd class="kbd">ESC</kbd>
+            </div>
+
+            <!-- 搜索结果列表 -->
+            <div class="search-results" v-if="searchQuery.trim()">
+              <div
+                v-for="(item, index) in filteredItems"
+                :key="item.path"
+                class="search-result-item"
+                :class="{ active: index === activeIndex }"
+                @click="navigateTo(item)"
+                @mouseenter="activeIndex = index"
+              >
+                <component :is="getIcon(item.icon)" :size="16" class="search-result-icon" />
+                <div class="search-result-info">
+                  <span class="search-result-name">{{ item.name }}</span>
+                  <span class="search-result-category">{{ item.category }}</span>
+                </div>
+                <component :is="ArrowRight" :size="14" class="search-result-arrow" />
+              </div>
+              <!-- 无结果 -->
+              <div v-if="filteredItems.length === 0" class="empty-state">
+                <Search :size="32" class="empty-state-icon" />
+                <p class="empty-state-text">未找到匹配的工具</p>
+                <p class="empty-state-hint">试试其他关键词</p>
+              </div>
+            </div>
+
+            <!-- 默认提示（无搜索词时） -->
+            <div class="search-results" v-else>
+              <div class="search-hint">
+                <span class="search-hint-text">输入关键词搜索所有工具</span>
+              </div>
+              <!-- 快捷操作 -->
+              <div class="search-quick-list">
+                <div
+                  v-for="item in recentItems"
+                  :key="item.path"
+                  class="search-result-item"
+                  @click="navigateTo(item)"
+                >
+                  <component :is="getIcon(item.icon)" :size="16" class="search-result-icon" />
+                  <div class="search-result-info">
+                    <span class="search-result-name">{{ item.name }}</span>
+                    <span class="search-result-category">{{ item.category }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 底部提示 -->
+            <div class="search-footer">
+              <span class="search-footer-item"><kbd class="kbd"><ArrowUp :size="10" /></kbd><kbd class="kbd"><ArrowDown :size="10" /></kbd> 导航</span>
+              <span class="search-footer-item"><kbd class="kbd">Enter</kbd> 选择</span>
+              <span class="search-footer-item"><kbd class="kbd">ESC</kbd> 关闭</span>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch, markRaw } from 'vue'
-import { RouterView, useRoute } from 'vue-router'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick, markRaw } from 'vue'
+import { RouterView, useRoute, useRouter } from 'vue-router'
 import {
   Minus, Square, X, Search, ChevronDown, Check,
   Moon, Sun, Monitor, Palette, Leaf, Sparkles, Layers,
@@ -133,6 +216,8 @@ import {
   Calculator, ArrowLeftRight, StickyNote, KeyRound,
   Signal, Radar, Globe, Globe2, Server, Settings,
   Database, FileCode, Lock, Trash2, Clipboard, SearchCode, Gauge,
+  ArrowUp, ArrowDown, ArrowRight, Home, AlignLeft, Type, Timer,
+  FileEdit, FileInput, Activity, HardDrive, Files, Info, Wifi,
 } from 'lucide-vue-next'
 import SideNav from '@/components/SideNav.vue'
 import ToastContainer from '@/components/ToastContainer.vue'
@@ -141,6 +226,7 @@ import { WindowMinimise, WindowToggleMaximise, Quit } from '../wailsjs/runtime/r
 
 const appStore = useAppStore()
 const route = useRoute()
+const router = useRouter()
 
 // ============ 主题相关 ============
 
@@ -254,6 +340,169 @@ onMounted(async () => {
   } catch {
     // ignore
   }
+})
+
+// ============ 全局搜索 ============
+
+// 搜索数据源（与 SideNav navGroups 保持同步）
+const searchItems = [
+  // devtools
+  { name: 'JSON 工具', path: '/devtools/json', category: '开发工具', icon: 'Braces' },
+  { name: 'Base64 编解码', path: '/devtools/base64', category: '开发工具', icon: 'Binary' },
+  { name: '哈希计算', path: '/devtools/hash', category: '开发工具', icon: 'Hash' },
+  { name: '正则测试', path: '/devtools/regex', category: '开发工具', icon: 'Regex' },
+  { name: '代码格式化', path: '/devtools/formatter', category: '开发工具', icon: 'AlignLeft' },
+  { name: '代码混淆', path: '/devtools/obfuscator', category: '开发工具', icon: 'Shield' },
+  { name: 'UUID 生成', path: '/devtools/uuid', category: '开发工具', icon: 'Fingerprint' },
+  { name: '时间戳转换', path: '/devtools/timestamp', category: '开发工具', icon: 'Clock' },
+  { name: 'URL 编解码', path: '/devtools/url', category: '开发工具', icon: 'Link' },
+  { name: '加密解密', path: '/devtools/crypto', category: '开发工具', icon: 'Lock' },
+  { name: 'XML 工具', path: '/devtools/xml', category: '开发工具', icon: 'FileCode' },
+  { name: '二维码', path: '/devtools/qrcode', category: '开发工具', icon: 'QrCode' },
+  { name: '文本处理', path: '/devtools/text', category: '开发工具', icon: 'Type' },
+  { name: '进制转换', path: '/devtools/radix', category: '开发工具', icon: 'Binary' },
+  { name: '占位文本生成', path: '/devtools/dummydata', category: '开发工具', icon: 'Database' },
+  { name: '接口文档生成', path: '/devtools/apidoc', category: '开发工具', icon: 'FileText' },
+  { name: '代码片段', path: '/devtools/snippets', category: '开发工具', icon: 'Code2' },
+  { name: 'JSON 对比', path: '/devtools/jsondiff', category: '开发工具', icon: 'GitCompare' },
+  // sysinfo
+  { name: '系统信息', path: '/sysinfo/system', category: '系统工具', icon: 'Monitor' },
+  { name: '进程管理', path: '/sysinfo/process', category: '系统工具', icon: 'Activity' },
+  { name: '端口管理', path: '/sysinfo/ports', category: '系统工具', icon: 'Network' },
+  { name: '磁盘清理', path: '/sysinfo/diskcleaner', category: '系统工具', icon: 'HardDrive' },
+  { name: '批量重命名', path: '/sysinfo/batchrename', category: '系统工具', icon: 'FilePen' },
+  { name: '文件批量处理', path: '/sysinfo/filebatch', category: '系统工具', icon: 'Files' },
+  { name: '图片工具', path: '/sysinfo/image', category: '系统工具', icon: 'Image' },
+  { name: '取色器', path: '/sysinfo/colorpicker', category: '系统工具', icon: 'Pipette' },
+  { name: '剪贴板管理', path: '/sysinfo/clipboard', category: '系统工具', icon: 'Clipboard' },
+  { name: '定时任务', path: '/sysinfo/cron', category: '系统工具', icon: 'Timer' },
+  // daily
+  { name: '计算器', path: '/daily/calculator', category: '日常工具', icon: 'Calculator' },
+  { name: '单位换算', path: '/daily/converter', category: '日常工具', icon: 'ArrowLeftRight' },
+  { name: '密码生成', path: '/daily/password', category: '日常工具', icon: 'KeyRound' },
+  { name: '备忘录', path: '/daily/notes', category: '日常工具', icon: 'StickyNote' },
+  { name: '二维码批量处理', path: '/daily/qrbatch', category: '日常工具', icon: 'QrCode' },
+  { name: '文档转换', path: '/daily/docconverter', category: '日常工具', icon: 'FileInput' },
+  // network
+  { name: 'HTTP 测试', path: '/network/http', category: '网络工具', icon: 'Globe' },
+  { name: 'Ping 测试', path: '/network/ping', category: '网络工具', icon: 'Wifi' },
+  { name: 'DNS 查询', path: '/network/dns', category: '网络工具', icon: 'Search' },
+  { name: 'WHOIS 查询', path: '/network/whois', category: '网络工具', icon: 'Info' },
+  { name: '内网扫描', path: '/network/scan', category: '网络工具', icon: 'Radar' },
+  { name: '网络测速', path: '/network/speedtest', category: '网络工具', icon: 'Gauge' },
+  { name: '端口转发', path: '/network/portforward', category: '网络工具', icon: 'ArrowLeftRight' },
+  { name: 'Hosts 编辑', path: '/network/hosts', category: '网络工具', icon: 'FileEdit' },
+  // settings
+  { name: '设置', path: '/settings', category: '设置', icon: 'Settings' },
+  { name: '快捷键管理', path: '/settings/shortcuts', category: '设置', icon: 'Keyboard' },
+  { name: '主题编辑', path: '/settings/theme', category: '设置', icon: 'Palette' },
+]
+
+// 搜索图标映射（扩展 iconMap）
+const searchIconMap: Record<string, any> = {
+  ...iconMap,
+  AlignLeft, Type, Timer, FileEdit, FileInput, Activity, HardDrive, Files, Info, Wifi,
+}
+
+// 获取搜索项图标组件
+function getIcon(iconName: string) {
+  return searchIconMap[iconName] || FileText
+}
+
+// 搜索弹窗状态
+const searchVisible = ref(false)
+const searchQuery = ref('')
+const activeIndex = ref(0)
+const searchInputRef = ref<HTMLInputElement | null>(null)
+
+// 打开搜索弹窗
+function openSearch() {
+  searchVisible.value = true
+  searchQuery.value = ''
+  activeIndex.value = 0
+  nextTick(() => {
+    searchInputRef.value?.focus()
+  })
+}
+
+// 关闭搜索弹窗
+function closeSearch() {
+  searchVisible.value = false
+  searchQuery.value = ''
+  activeIndex.value = 0
+}
+
+// 搜索过滤结果
+const filteredItems = computed(() => {
+  const query = searchQuery.value.trim().toLowerCase()
+  if (!query) return []
+  return searchItems.filter(item =>
+    item.name.toLowerCase().includes(query) ||
+    item.category.toLowerCase().includes(query) ||
+    item.path.toLowerCase().includes(query)
+  )
+})
+
+// 默认显示的常用工具（无搜索词时）
+const recentItems = computed(() => {
+  return searchItems.slice(0, 6)
+})
+
+// 监听过滤结果变化，重置 activeIndex
+watch(filteredItems, () => {
+  activeIndex.value = 0
+})
+
+// 键盘导航：向下
+function moveDown() {
+  if (filteredItems.value.length > 0) {
+    activeIndex.value = (activeIndex.value + 1) % filteredItems.value.length
+  }
+}
+
+// 键盘导航：向上
+function moveUp() {
+  if (filteredItems.value.length > 0) {
+    activeIndex.value = (activeIndex.value - 1 + filteredItems.value.length) % filteredItems.value.length
+  }
+}
+
+// 选择当前项
+function selectCurrent() {
+  const query = searchQuery.value.trim()
+  if (query && filteredItems.value.length > 0) {
+    navigateTo(filteredItems.value[activeIndex.value])
+  }
+}
+
+// 跳转到对应工具
+function navigateTo(item: typeof searchItems[0]) {
+  closeSearch()
+  router.push(item.path)
+}
+
+// Ctrl+K 全局快捷键
+function handleGlobalKeydown(e: KeyboardEvent) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+    e.preventDefault()
+    if (searchVisible.value) {
+      closeSearch()
+    } else {
+      openSearch()
+    }
+  }
+  // ESC 关闭搜索弹窗
+  if (e.key === 'Escape' && searchVisible.value) {
+    closeSearch()
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('keydown', handleGlobalKeydown)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleGlobalKeydown)
 })
 </script>
 
@@ -414,5 +663,35 @@ onMounted(async () => {
 .dropdown-leave-to {
   opacity: 0;
   transform: translateY(-2px) scale(0.98);
+}
+
+/* ============================================================
+   搜索弹窗动画
+   ============================================================ */
+
+.search-modal-enter-active {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.search-modal-leave-active {
+  transition: all 0.15s ease-in;
+}
+
+.search-modal-enter-from {
+  opacity: 0;
+}
+
+.search-modal-enter-from .search-modal {
+  transform: scale(0.95) translateY(-8px);
+  opacity: 0;
+}
+
+.search-modal-leave-to {
+  opacity: 0;
+}
+
+.search-modal-leave-to .search-modal {
+  transform: scale(0.97) translateY(-4px);
+  opacity: 0;
 }
 </style>

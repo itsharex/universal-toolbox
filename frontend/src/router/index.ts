@@ -180,6 +180,12 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/sysinfo/ClipboardManager.vue'),
     meta: { title: '剪贴板管理', category: 'sysinfo', icon: 'Clipboard' },
   },
+  {
+    path: '/sysinfo/cron',
+    name: 'CronTool',
+    component: () => import('@/views/sysinfo/CronTool.vue'),
+    meta: { title: '定时任务', category: 'sysinfo', icon: 'Timer' },
+  },
 
   // ============ 日常工具 ============
   {
