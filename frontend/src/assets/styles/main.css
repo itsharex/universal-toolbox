@@ -191,6 +191,7 @@ body::before {
     );
 }
 
+:root.light body::before,
 .light body::before {
   background-image:
     repeating-linear-gradient(

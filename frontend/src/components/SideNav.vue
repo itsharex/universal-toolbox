@@ -126,12 +126,12 @@
       <div v-if="!collapsed" class="px-2 pt-2 pb-1">
         <div class="text-[10px] opacity-30 leading-relaxed">
           <div>Universal Toolbox</div>
-          <div>v1.0.0</div>
+          <div>v2.0.0</div>
           <div class="mt-0.5">&copy; 2024 All rights reserved</div>
         </div>
       </div>
       <div v-else class="flex justify-center pt-1 pb-1">
-        <span class="text-[9px] opacity-25">v1.0</span>
+        <span class="text-[9px] opacity-25">v2.0</span>
       </div>
     </div>
   </nav>
@@ -159,7 +159,7 @@ const route = useRoute()
 const collapsed = computed(() => appStore.sidebarCollapsed)
 
 // 判断路由是否激活
-const isActive = (path: string) => route.path.startsWith(path)
+const isActive = (path: string) => route.path === path
 
 // 分类配色映射
 const categoryColors: Record<string, string> = {

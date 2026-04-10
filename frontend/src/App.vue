@@ -4,7 +4,6 @@
     :class="[
       'app-root h-screen w-screen overflow-hidden flex flex-col',
       themeClass,
-      { 'mica-effect': isMicaTheme }
     ]"
   >
     <!-- ====== 顶部功能栏 (48px) ====== -->
@@ -18,17 +17,6 @@
           <span class="text-white text-sm font-bold tracking-tight">X</span>
         </div>
         <span class="text-sm font-semibold tracking-wide opacity-90">XTool</span>
-      </div>
-
-      <!-- 中间：全局搜索框 -->
-      <div
-        class="search-trigger flex items-center gap-2 px-3 py-1.5 rounded-lg cursor-pointer mx-4"
-        style="--wails-draggable: no-drag"
-        @click="openSearch"
-      >
-        <Search :size="14" class="opacity-40" />
-        <span class="text-xs opacity-35 whitespace-nowrap">搜索工具...</span>
-        <kbd class="text-[10px] opacity-30 px-1.5 py-0.5 rounded border border-current/20 ml-4">Ctrl+K</kbd>
       </div>
 
       <!-- 右侧：主题切换 + 窗口控制 -->
@@ -260,9 +248,6 @@ const themeClass = computed(() => {
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 })
 
-// 是否启用云母效果
-const isMicaTheme = computed(() => appStore.theme === 'mica')
-
 // 主题下拉菜单状态
 const showThemeDropdown = ref(false)
 const themeDropdownRef = ref<HTMLElement | null>(null)
@@ -313,7 +298,7 @@ const currentToolIcon = computed(() => {
 
 // ============ 版本号 ============
 
-const appVersion = ref('1.0.0')
+const appVersion = ref('2.0.0')
 
 // ============ 窗口控制 ============
 
@@ -516,6 +501,13 @@ onUnmounted(() => {
   background: var(--bg-primary);
   color: var(--text-primary);
   transition: background var(--transition-theme), color var(--transition-theme);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+
+.light .app-root {
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08), 0 8px 32px rgba(0, 0, 0, 0.15);
 }
 
 /* ============================================================
@@ -532,25 +524,6 @@ onUnmounted(() => {
 .logo-icon {
   background: linear-gradient(135deg, var(--accent), var(--accent-hover));
   box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
-}
-
-/* 搜索触发器 */
-.search-trigger {
-  background: var(--bg-hover);
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
-  transition: all 0.2s ease;
-  min-width: 200px;
-  max-width: 320px;
-}
-
-.search-trigger:hover {
-  background: var(--bg-active);
-  border-color: var(--accent);
-}
-
-.search-trigger kbd {
-  color: var(--text-muted);
 }
 
 /* 主题按钮 */

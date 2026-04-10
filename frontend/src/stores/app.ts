@@ -118,13 +118,14 @@ export const useAppStore = defineStore('app', () => {
   function applyTheme(themeId: string) {
     const root = document.documentElement
 
-    // 1. 先移除所有可能的主题类，避免残留
+    // 1. 清除所有主题类和效果类
     ALL_THEME_CLASSES.forEach(cls => root.classList.remove(cls))
+    root.classList.remove('mica-effect')  // 确保清除云母效果
 
-    // 2. 设置 data-theme 属性到 document.documentElement（作为备用选择器）
+    // 2. 设置 data-theme 属性
     root.setAttribute('data-theme', themeId)
 
-    // 3. 根据主题ID添加对应的类
+    // 3. 添加对应的类
     if (themeId === 'auto') {
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
       root.classList.add(prefersDark ? 'dark' : 'light')
@@ -135,15 +136,17 @@ export const useAppStore = defineStore('app', () => {
       if (themeId !== 'dark') {
         root.classList.add(`theme-${themeId}`)
       }
+      if (themeId === 'mica') {
+        root.classList.add('mica-effect')
+      }
     }
 
-    // 4. 添加 transition 类实现 0.3s 全局过渡动画
+    // 4. 主题过渡动画
     root.classList.add('theme-transitioning')
     setTimeout(() => {
       root.classList.remove('theme-transitioning')
     }, 300)
 
-    // 5. 更新滚动条颜色（通过 CSS 变量驱动，确保滚动条跟随主题）
     updateScrollbarStyle()
   }
 
