@@ -4,6 +4,7 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -30,16 +31,22 @@ func Init() (*Database, error) {
 		return nil, err
 	}
 
-	// 打开 SQLite 数据库
+	// 打开 SQLite 数据库（WAL 模式支持并发读）
 	dbPath := filepath.Join(dataDir, "toolbox.db")
 	db, err := sql.Open("sqlite3", dbPath+"?_journal_mode=WAL&_synchronous=NORMAL&_busy_timeout=5000")
 	if err != nil {
 		return nil, err
 	}
 
-	// 设置连接池参数
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(1)
+	// 设置连接池参数（WAL 模式支持多个并发读连接）
+	db.SetMaxOpenConns(5)
+	db.SetMaxIdleConns(2)
+
+	// 验证数据库连接是否正常
+	if err := db.Ping(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("数据库连接验证失败: %w", err)
+	}
 
 	// 初始化数据表
 	database := &Database{DB: db}
@@ -115,10 +122,45 @@ func (d *Database) initTables() error {
 		return err
 	}
 
+	// 创建索引以提升查询性能
+	if err := d.createIndexes(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// createIndexes 创建常用查询索引
+func (d *Database) createIndexes() error {
+	// snippets 表的 language 字段索引（用于按语言筛选代码片段）
+	if _, err := d.DB.Exec("CREATE INDEX IF NOT EXISTS idx_snippets_language ON snippets(language)"); err != nil {
+		return fmt.Errorf("创建 snippets language 索引失败: %w", err)
+	}
+
+	// snippets 表的 tags 字段索引（用于按标签搜索）
+	if _, err := d.DB.Exec("CREATE INDEX IF NOT EXISTS idx_snippets_tags ON snippets(tags)"); err != nil {
+		return fmt.Errorf("创建 snippets tags 索引失败: %w", err)
+	}
+
+	// notes 表的 pinned 字段索引（用于置顶排序查询）
+	if _, err := d.DB.Exec("CREATE INDEX IF NOT EXISTS idx_notes_pinned ON notes(pinned)"); err != nil {
+		return fmt.Errorf("创建 notes pinned 索引失败: %w", err)
+	}
+
 	return nil
 }
 
 // Close 关闭数据库连接
 func (d *Database) Close() error {
 	return d.DB.Close()
+}
+
+// Vacuum 压缩数据库，回收已删除数据占用的空间
+// 建议在大量删除操作后调用，执行期间会持有排他锁
+func (d *Database) Vacuum() error {
+	_, err := d.DB.Exec("VACUUM")
+	if err != nil {
+		return fmt.Errorf("数据库压缩失败: %w", err)
+	}
+	return nil
 }
