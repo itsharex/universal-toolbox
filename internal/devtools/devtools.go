@@ -1838,7 +1838,7 @@ func formatCodeSQL(code string) ToolResult {
 			indent = 1
 		} else if subKeywords[upperMatch] {
 			// 子句关键字，保持当前缩进
-			sb.WriteString(strings.Repeat(indentStr, indent > 0 ? indent-1 : 0))
+			sb.WriteString(strings.Repeat(indentStr, indent > 0 ? (indent - 1) : 0))
 			sb.WriteString(match)
 			sb.WriteString("\n")
 		} else {
