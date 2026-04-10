@@ -1,0 +1,127 @@
+; ============================================================
+; XTool NSIS Install Script (Enhanced)
+; Auto-generated, do not edit manually
+; ============================================================
+
+; ----- Application Metadata -----
+!define APP_NAME "PLACEHOLDER_APP_NAME"
+!define APP_VERSION "PLACEHOLDER_VERSION"
+!define APP_PUBLISHER "MasterPick"
+!define APP_URL "https://github.com/MasterPick/universal-toolbox"
+!define APP_EXE "PLACEHOLDER_APP_EXE"
+!define INSTALL_DIR "PLACEHOLDER_INSTALL_DIR"
+
+; ----- Basic Settings -----
+Name "${APP_NAME} v${APP_VERSION}"
+OutFile "PLACEHOLDER_SETUP_EXE"
+Unicode True
+InstallDir "${INSTALL_DIR}"
+InstallDirRegKey HKLM "Software\${APP_NAME}" ""
+RequestExecutionLevel admin
+SetCompressor /SOLID lzma
+XPStyle on
+
+; ----- MUI2 Setup -----
+!include "MUI2.nsh"
+!include "nsDialogs.nsh"
+!include "FileFunc.nsh"
+
+; ----- Abort Warning -----
+!define MUI_ABORTWARNING
+
+; ----- Icons -----
+!define MUI_ICON "build\windows\icon.ico"
+!define MUI_UNICON "build\windows\icon.ico"
+
+; ----- Header Image -----
+!define MUI_HEADERIMAGE
+!define MUI_HEADERIMAGE_BITMAP "build\windows\icon.ico"
+!define MUI_HEADERIMAGE_BITMAP_NOSTRETCH
+!define MUI_HEADERIMAGE_RIGHT
+
+; ----- UI Colors -----
+!define MUI_BGCOLOR "0xF0F0F0"
+
+; ----- Component Page -----
+!define MUI_COMPONENTSPAGE_NODESC
+
+; ----- Welcome Page -----
+!define MUI_WELCOMEPAGE_TITLE_3LINES
+
+; ----- Finish Page -----
+!define MUI_FINISHPAGE_TITLE_3LINES
+!define MUI_FINISHPAGE_NOREBOOTSUPPORT
+
+; ----- Page Declarations -----
+!insertmacro MUI_PAGE_WELCOME
+!insertmacro MUI_PAGE_LICENSE "LICENSE"
+!insertmacro MUI_PAGE_COMPONENTS
+!insertmacro MUI_PAGE_DIRECTORY
+!insertmacro MUI_PAGE_INSTFILES
+!insertmacro MUI_PAGE_FINISH
+
+; ----- Uninstaller Pages -----
+!insertmacro MUI_UNPAGE_CONFIRM
+!insertmacro MUI_UNPAGE_INSTFILES
+
+; ----- Languages -----
+!insertmacro MUI_LANGUAGE "SimpChinese"
+
+; ============================================================
+; Sections
+; ============================================================
+
+; ----- Core Application (Required) -----
+Section "!${APP_NAME} 核心文件" SecCore
+  SectionIn RO
+  SetOutPath "$INSTDIR"
+  File "build\bin\${APP_EXE}"
+  File "README.md"
+  File "LICENSE"
+  WriteUninstaller "$INSTDIR\Uninstall.exe"
+  WriteRegStr HKLM "Software\${APP_NAME}" "" "$INSTDIR"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "DisplayName" "${APP_NAME}"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "UninstallString" "$INSTDIR\Uninstall.exe"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "DisplayIcon" "$INSTDIR\${APP_EXE},0"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "DisplayVersion" "${APP_VERSION}"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "Publisher" "${APP_PUBLISHER}"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "URLInfoAbout" "${APP_URL}"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "HelpLink" "${APP_URL}"
+  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "NoModify" 1
+  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "NoRepair" 1
+  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "EstimatedSize" 50000
+SectionEnd
+
+; ----- Desktop Shortcut (Optional) -----
+Section "桌面快捷方式" SecDesktop
+  CreateShortcut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}" "" "" "" 0 SW_SHOWNORMAL "" "$INSTDIR\${APP_EXE},0" 0
+SectionEnd
+
+; ----- Start Menu (Optional) -----
+Section "开始菜单快捷方式" SecStartMenu
+  CreateDirectory "$SMPROGRAMS\${APP_NAME}"
+  CreateShortcut "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}" "" "" "" 0 SW_SHOWNORMAL "" "$INSTDIR\${APP_EXE},0" 0
+  CreateShortcut "$SMPROGRAMS\${APP_NAME}\卸载.lnk" "$INSTDIR\Uninstall.exe" "" "" "" 0 SW_SHOWNORMAL "" "$INSTDIR\Uninstall.exe,0" 0
+SectionEnd
+
+; ----- Auto-Start (Optional) -----
+Section "开机自启动" SecAutoStart
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${APP_NAME}" "$INSTDIR\${APP_EXE}"
+SectionEnd
+
+; ============================================================
+; Uninstaller Section
+; ============================================================
+Section "Uninstall"
+  nsExec::ExecToLog "taskkill /F /IM ${APP_EXE}"
+  Delete "$INSTDIR\${APP_EXE}"
+  Delete "$INSTDIR\README.md"
+  Delete "$INSTDIR\LICENSE"
+  Delete "$INSTDIR\Uninstall.exe"
+  RMDir "$INSTDIR"
+  Delete "$DESKTOP\${APP_NAME}.lnk"
+  RMDir /r "$SMPROGRAMS\${APP_NAME}"
+  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${APP_NAME}"
+  DeleteRegKey HKLM "Software\${APP_NAME}"
+  DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}"
+SectionEnd
