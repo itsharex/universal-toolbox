@@ -1,10 +1,5 @@
 <template>
-  <div class="page-container">
-    <div>
-      <div class="page-title"><Globe :size="20" class="text-primary-400"/>HTTP 接口测试</div>
-      <div class="page-desc">发送 HTTP 请求，查看响应内容</div>
-    </div>
-
+  <ToolPage title="HTTP 测试" description="发送 HTTP 请求，查看响应结果">
     <!-- 请求配置 -->
     <div class="card mb-3">
       <div class="flex gap-2 mb-3">
@@ -74,12 +69,13 @@
     </div>
 
     <div v-if="error" class="card border-red-500/30 text-red-400 mt-3">{{ error }}</div>
-  </div>
+  </ToolPage>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { Globe, Send, Plus, X } from 'lucide-vue-next'
+import { Send, Plus, X } from 'lucide-vue-next'
+import ToolPage from '@/components/ToolPage.vue'
 import { useAppStore } from '@/stores/app'
 import { HTTPRequest } from '../../../wailsjs/go/network/NetworkTools'
 

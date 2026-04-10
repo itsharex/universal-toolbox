@@ -1,26 +1,15 @@
 <template>
   <!-- JSON 工具页面：格式化、压缩、校验、转义 -->
-  <div class="page-container">
-    <!-- 页面标题 -->
-    <div>
-      <div class="page-title">
-        <Braces :size="20" class="text-primary-400" />
-        JSON 工具
-      </div>
-      <div class="page-desc">格式化 · 压缩 · 校验 · 转义/反转义</div>
-    </div>
-
-    <!-- 操作工具栏 -->
-    <div class="toolbar mb-3">
+  <ToolPage title="JSON 工具" description="JSON 格式化、压缩、校验、转义">
+    <template #actions>
       <button @click="formatJSON"    class="btn btn-primary"><Wand2 :size="14"/>格式化</button>
       <button @click="compressJSON"  class="btn btn-secondary"><Minimize2 :size="14"/>压缩</button>
       <button @click="validateJSON"  class="btn btn-secondary"><CheckCircle :size="14"/>校验</button>
       <button @click="escapeJSON"    class="btn btn-secondary"><Code :size="14"/>转义</button>
       <button @click="unescapeJSON"  class="btn btn-secondary"><Undo :size="14"/>反转义</button>
-      <div class="flex-1" />
       <button @click="copyOutput"    class="btn btn-secondary"><Copy :size="14"/>复制结果</button>
       <button @click="clearAll"      class="btn btn-secondary"><Trash2 :size="14"/>清空</button>
-    </div>
+    </template>
 
     <!-- 双栏编辑区 -->
     <div class="two-col flex-1 min-h-0">
@@ -56,12 +45,13 @@
         </div>
       </div>
     </div>
-  </div>
+  </ToolPage>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { Braces, Wand2, Minimize2, CheckCircle, Code, Undo, Copy, Trash2 } from 'lucide-vue-next'
+import { Wand2, Minimize2, CheckCircle, Code, Undo, Copy, Trash2 } from 'lucide-vue-next'
+import ToolPage from '@/components/ToolPage.vue'
 import { useAppStore } from '@/stores/app'
 import {
   FormatJSON, CompressJSON, ValidateJSON, EscapeJSON, UnescapeJSON

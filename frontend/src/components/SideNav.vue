@@ -2,25 +2,43 @@
   <!-- 左侧导航栏组件 -->
   <nav
     :class="[
-      'sidenav flex flex-col shrink-0 transition-all duration-300 ease-in-out',
+      'sidenav flex flex-col shrink-0 transition-all duration-300 ease-in-out relative',
       collapsed ? 'w-14' : 'w-56'
     ]"
   >
     <!-- 搜索框 -->
     <div v-if="!collapsed" class="px-3 py-2">
-      <div class="search-box flex items-center gap-2 px-3 py-1.5 rounded-lg cursor-pointer"
-           @click="appStore.searchVisible = true">
-        <Search :size="13" class="opacity-50" />
-        <span class="text-xs opacity-40">搜索工具... Ctrl+K</span>
+      <div
+        class="search-box flex items-center gap-2 px-3 py-1.5 rounded-lg cursor-pointer"
+        @click="appStore.searchVisible = true"
+      >
+        <Search :size="13" class="opacity-50 shrink-0" />
+        <span class="text-xs opacity-40">搜索工具... <kbd class="search-kbd">Ctrl+K</kbd></span>
       </div>
+    </div>
+    <!-- 折叠模式搜索按钮 -->
+    <div v-else class="px-2 py-2 flex justify-center">
+      <button
+        class="search-btn-collapsed flex items-center justify-center w-8 h-8 rounded-lg cursor-pointer"
+        @click="appStore.searchVisible = true"
+        v-tooltip="'搜索工具 (Ctrl+K)'"
+      >
+        <Search :size="15" class="opacity-60" />
+      </button>
     </div>
 
     <!-- 导航分组 -->
     <div class="flex-1 overflow-y-auto overflow-x-hidden px-2 py-1 space-y-0.5 scrollbar-thin">
       <template v-for="group in navGroups" :key="group.id">
         <!-- 分组标题 -->
-        <div v-if="!collapsed"
-             class="nav-group-title px-2 py-1 mt-3 first:mt-1">
+        <div
+          v-if="!collapsed"
+          class="nav-group-title px-2 py-1 mt-3 first:mt-1 flex items-center gap-2"
+        >
+          <span
+            class="w-1.5 h-1.5 rounded-full shrink-0"
+            :style="{ background: getCategoryColor(group.id) }"
+          />
           {{ group.label }}
         </div>
         <div v-else class="h-px mx-2 my-2 opacity-10 bg-current" />
@@ -31,46 +49,96 @@
           :key="item.path"
           :to="item.path"
           class="nav-item"
-          :class="{ 'active': isActive(item.path), 'collapsed': collapsed }"
+          :class="{
+            'active': isActive(item.path),
+            'collapsed': collapsed,
+          }"
+          :style="getActiveStyle(group.id, item.path)"
           v-tooltip="collapsed ? item.label : ''"
         >
-          <component :is="getIcon(item.icon)" :size="16" class="shrink-0" />
+          <component
+            :is="getIcon(item.icon)"
+            :size="16"
+            class="shrink-0 nav-icon"
+            :style="isActive(item.path) ? { color: getCategoryColor(group.id) } : {}"
+          />
           <span v-if="!collapsed" class="truncate text-sm">{{ item.label }}</span>
         </RouterLink>
       </template>
     </div>
 
-    <!-- 底部操作区 -->
-    <div class="px-2 py-2 border-t border-white/5 space-y-0.5">
+    <!-- 底部区域 -->
+    <div class="sidenav-footer px-2 py-2 border-t border-white/5 space-y-0.5">
       <!-- 设置 -->
-      <RouterLink to="/settings" class="nav-item" :class="{ 'active': isActive('/settings'), 'collapsed': collapsed }">
-        <Settings :size="16" class="shrink-0" />
+      <RouterLink
+        to="/settings"
+        class="nav-item"
+        :class="{ 'active': isActive('/settings'), 'collapsed': collapsed }"
+        :style="getActiveStyle('settings', '/settings')"
+      >
+        <Settings
+          :size="16"
+          class="shrink-0 nav-icon"
+          :style="isActive('/settings') ? { color: getCategoryColor('settings') } : {}"
+        />
         <span v-if="!collapsed" class="text-sm">设置</span>
       </RouterLink>
       <!-- 主题编辑器 -->
-      <RouterLink to="/settings/theme" class="nav-item" :class="{ 'active': isActive('/settings/theme'), 'collapsed': collapsed }">
-        <Palette :size="16" class="shrink-0" />
+      <RouterLink
+        to="/settings/theme"
+        class="nav-item"
+        :class="{ 'active': isActive('/settings/theme'), 'collapsed': collapsed }"
+        :style="getActiveStyle('settings', '/settings/theme')"
+      >
+        <Palette
+          :size="16"
+          class="shrink-0 nav-icon"
+          :style="isActive('/settings/theme') ? { color: getCategoryColor('settings') } : {}"
+        />
         <span v-if="!collapsed" class="text-sm">主题编辑</span>
       </RouterLink>
       <!-- 快捷键管理 -->
-      <RouterLink to="/settings/shortcuts" class="nav-item" :class="{ 'active': isActive('/settings/shortcuts'), 'collapsed': collapsed }">
-        <Keyboard :size="16" class="shrink-0" />
+      <RouterLink
+        to="/settings/shortcuts"
+        class="nav-item"
+        :class="{ 'active': isActive('/settings/shortcuts'), 'collapsed': collapsed }"
+        :style="getActiveStyle('settings', '/settings/shortcuts')"
+      >
+        <Keyboard
+          :size="16"
+          class="shrink-0 nav-icon"
+          :style="isActive('/settings/shortcuts') ? { color: getCategoryColor('settings') } : {}"
+        />
         <span v-if="!collapsed" class="text-sm">快捷键</span>
       </RouterLink>
 
       <!-- 折叠按钮 -->
-      <button @click="appStore.toggleSidebar()"
-              class="nav-item w-full">
+      <button
+        @click="appStore.toggleSidebar()"
+        class="nav-item w-full"
+      >
         <PanelLeftClose v-if="!collapsed" :size="16" class="shrink-0" />
         <PanelLeftOpen v-else :size="16" class="shrink-0" />
         <span v-if="!collapsed" class="text-sm">收起侧栏</span>
       </button>
+
+      <!-- 版本号 + 版权信息 -->
+      <div v-if="!collapsed" class="px-2 pt-2 pb-1">
+        <div class="text-[10px] opacity-30 leading-relaxed">
+          <div>Universal Toolbox</div>
+          <div>v1.0.0</div>
+          <div class="mt-0.5">&copy; 2024 All rights reserved</div>
+        </div>
+      </div>
+      <div v-else class="flex justify-center pt-1 pb-1">
+        <span class="text-[9px] opacity-25">v1.0</span>
+      </div>
     </div>
   </nav>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import {
   Search, Settings, PanelLeftClose, PanelLeftOpen,
@@ -91,6 +159,29 @@ const collapsed = computed(() => appStore.sidebarCollapsed)
 
 // 判断路由是否激活
 const isActive = (path: string) => route.path.startsWith(path)
+
+// 分类配色映射
+const categoryColors: Record<string, string> = {
+  devtools: '#00ADD8',   // 开发工具 - 蓝色
+  sysinfo: '#42b883',    // 系统工具 - 绿色
+  daily: '#FF9C41',      // 日常工具 - 橙色
+  network: '#8B5CF6',    // 网络工具 - 紫色
+  settings: '#6B6B7B',   // 设置 - 灰色
+}
+
+// 获取分类颜色
+const getCategoryColor = (groupId: string): string => {
+  return categoryColors[groupId] || '#6B6B7B'
+}
+
+// 获取激活状态的内联样式（左侧指示条颜色）
+const getActiveStyle = (groupId: string, path: string) => {
+  if (!isActive(path)) return {}
+  const color = getCategoryColor(groupId)
+  return {
+    '--cat-color': color,
+  }
+}
 
 // 图标映射表
 const iconMap: Record<string, any> = {
@@ -168,18 +259,29 @@ const navGroups = [
     ],
   },
 ]
+
+// Ctrl+K 快捷键触发搜索
+const handleKeydown = (e: KeyboardEvent) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+    e.preventDefault()
+    appStore.searchVisible = true
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('keydown', handleKeydown)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeydown)
+})
 </script>
 
 <style scoped>
 /* 导航栏背景 */
 .sidenav {
-  background: rgba(255, 255, 255, 0.02);
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.light .sidenav {
-  background: rgba(0, 0, 0, 0.02);
-  border-right: 1px solid rgba(0, 0, 0, 0.08);
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-color);
 }
 
 /* 分组标题 */
@@ -188,8 +290,8 @@ const navGroups = [
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  opacity: 0.4;
-  color: var(--nav-text);
+  color: var(--text-muted);
+  user-select: none;
 }
 
 /* 导航项基础样式 */
@@ -198,13 +300,17 @@ const navGroups = [
   align-items: center;
   gap: 8px;
   padding: 6px 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   text-decoration: none;
-  color: inherit;
-  opacity: 0.65;
-  transition: all 0.15s ease;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
   position: relative;
   overflow: hidden;
+  border: none;
+  background: transparent;
+  width: 100%;
+  cursor: pointer;
+  font-size: 13px;
 }
 
 .nav-item.collapsed {
@@ -212,58 +318,92 @@ const navGroups = [
   padding: 7px;
 }
 
+/* hover 效果：背景渐变 + 微上浮 */
 .nav-item:hover {
-  opacity: 1;
-  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+  background: linear-gradient(
+    135deg,
+    var(--bg-hover) 0%,
+    var(--bg-active) 100%
+  );
+  transform: translateY(-1px);
 }
 
-.light .nav-item:hover {
-  background: rgba(0, 0, 0, 0.05);
-}
-
-/* 激活状态 */
+/* 激活状态：左侧指示条 + 背景高亮 */
 .nav-item.active {
-  opacity: 1;
-  background: rgba(99, 102, 241, 0.15);
-  color: #818cf8;
-}
-
-.light .nav-item.active {
-  background: rgba(79, 70, 229, 0.1);
-  color: #4f46e5;
+  color: var(--text-primary);
+  background: var(--bg-hover);
 }
 
 .nav-item.active::before {
   content: '';
   position: absolute;
   left: 0;
-  top: 20%;
-  bottom: 20%;
+  top: 15%;
+  bottom: 15%;
   width: 3px;
   border-radius: 0 3px 3px 0;
-  background: #6366f1;
+  background: var(--cat-color, var(--accent));
+  box-shadow: 0 0 8px var(--cat-color, var(--accent-glow));
+}
+
+.nav-item.active:hover {
+  background: var(--bg-active);
 }
 
 /* 搜索框样式 */
 .search-box {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: var(--bg-hover);
+  border: 1px solid var(--border-color);
   color: inherit;
-  transition: all 0.15s ease;
+  transition: all var(--transition-fast);
 }
 
 .search-box:hover {
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(255, 255, 255, 0.12);
+  background: var(--bg-active);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-glow);
 }
 
-.light .search-box {
-  background: rgba(0, 0, 0, 0.04);
-  border-color: rgba(0, 0, 0, 0.08);
+.search-kbd {
+  display: inline-block;
+  padding: 0 4px;
+  font-size: 10px;
+  font-family: inherit;
+  background: var(--bg-active);
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  line-height: 1.6;
+  margin-left: 2px;
+}
+
+/* 折叠模式搜索按钮 */
+.search-btn-collapsed {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: inherit;
+  transition: all var(--transition-fast);
+}
+
+.search-btn-collapsed:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+}
+
+/* 底部区域 */
+.sidenav-footer {
+  border-top-color: var(--border-color);
 }
 
 /* 细滚动条 */
 .scrollbar-thin::-webkit-scrollbar { width: 3px; }
 .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
-.scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+}
+
+.light .scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.08);
+}
 </style>

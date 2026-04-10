@@ -1,6 +1,5 @@
 <template>
-  <div class="page-container">
-    <div class="page-title"><Calculator :size="20" class="text-primary-400"/>计算器</div>
+  <ToolPage title="计算器" description="标准计算与科学计算">
     <div class="tab-bar mb-4">
       <button :class="['tab-item', mode==='standard'&&'active']" @click="mode='standard'">标准</button>
       <button :class="['tab-item', mode==='scientific'&&'active']" @click="mode='scientific'">科学</button>
@@ -40,11 +39,11 @@
         </div>
       </div>
     </div>
-  </div>
+  </ToolPage>
 </template>
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { Calculator } from 'lucide-vue-next'
+import ToolPage from '@/components/ToolPage.vue'
 import { CalcBasic, CalcScientific } from '../../../wailsjs/go/daily/DailyTools'
 
 const mode = ref<'standard'|'scientific'>('standard')
