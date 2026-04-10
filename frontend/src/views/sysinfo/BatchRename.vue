@@ -32,6 +32,8 @@
         <div class="flex gap-2 mb-3">
           <input v-model="pattern" class="input-field flex-1" placeholder="查找（支持正则）..."/>
           <input v-model="replacement" class="input-field flex-1" placeholder="替换为（$1 引用捕获组）..."/>
+        </div>
+      </template>
       <!-- 前缀 -->
       <template v-if="renameMode==='prefix'">
         <div class="flex gap-2 mb-3">
