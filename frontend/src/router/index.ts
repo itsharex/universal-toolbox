@@ -94,6 +94,30 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/devtools/CryptoTool.vue'),
     meta: { title: '加密解密', category: 'devtools', icon: 'Shield' },
   },
+  {
+    path: '/devtools/radix',
+    name: 'RadixTool',
+    component: () => import('@/views/devtools/RadixTool.vue'),
+    meta: { title: '进制转换', category: 'devtools', icon: 'Binary' },
+  },
+  {
+    path: '/devtools/dummydata',
+    name: 'DummyDataTool',
+    component: () => import('@/views/devtools/DummyDataTool.vue'),
+    meta: { title: '占位文本生成', category: 'devtools', icon: 'Database' },
+  },
+  {
+    path: '/devtools/apidoc',
+    name: 'APIDocTool',
+    component: () => import('@/views/devtools/APIDocTool.vue'),
+    meta: { title: '接口文档生成', category: 'devtools', icon: 'FileCode' },
+  },
+  {
+    path: '/devtools/obfuscator',
+    name: 'CodeObfuscator',
+    component: () => import('@/views/devtools/CodeObfuscator.vue'),
+    meta: { title: '代码混淆', category: 'devtools', icon: 'Lock' },
+  },
 
   // ============ 系统工具 ============
   {
@@ -138,6 +162,18 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/sysinfo/FileBatchTool.vue'),
     meta: { title: '文件批量处理', category: 'sysinfo', icon: 'FolderSearch' },
   },
+  {
+    path: '/sysinfo/diskcleaner',
+    name: 'DiskCleaner',
+    component: () => import('@/views/sysinfo/DiskCleaner.vue'),
+    meta: { title: '磁盘清理', category: 'sysinfo', icon: 'Trash2' },
+  },
+  {
+    path: '/sysinfo/clipboard',
+    name: 'ClipboardManager',
+    component: () => import('@/views/sysinfo/ClipboardManager.vue'),
+    meta: { title: '剪贴板管理', category: 'sysinfo', icon: 'Clipboard' },
+  },
 
   // ============ 日常工具 ============
   {
@@ -157,6 +193,18 @@ const routes: RouteRecordRaw[] = [
     name: 'Notes',
     component: () => import('@/views/daily/Notes.vue'),
     meta: { title: '备忘录', category: 'daily', icon: 'StickyNote' },
+  },
+  {
+    path: '/daily/password',
+    name: 'PasswordGenerator',
+    component: () => import('@/views/daily/PasswordGenerator.vue'),
+    meta: { title: '密码生成', category: 'daily', icon: 'KeyRound' },
+  },
+  {
+    path: '/daily/qrbatch',
+    name: 'QRBatchTool',
+    component: () => import('@/views/daily/QRBatchTool.vue'),
+    meta: { title: '二维码批量处理', category: 'daily', icon: 'QrCode' },
   },
 
   // ============ 网络工具 ============
@@ -189,6 +237,18 @@ const routes: RouteRecordRaw[] = [
     name: 'DnsTool',
     component: () => import('@/views/network/DnsTool.vue'),
     meta: { title: 'DNS 查询', category: 'network', icon: 'Globe2' },
+  },
+  {
+    path: '/network/whois',
+    name: 'WhoisTool',
+    component: () => import('@/views/network/WhoisTool.vue'),
+    meta: { title: 'WHOIS 查询', category: 'network', icon: 'SearchCode' },
+  },
+  {
+    path: '/network/speedtest',
+    name: 'SpeedTest',
+    component: () => import('@/views/network/SpeedTest.vue'),
+    meta: { title: '网络测速', category: 'network', icon: 'Gauge' },
   },
 
   // ============ 设置 ============

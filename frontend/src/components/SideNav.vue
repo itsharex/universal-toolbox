@@ -79,6 +79,7 @@ import {
   Cpu, Network, Monitor, FilePen, Pipette, Image, FolderSearch,
   Calculator, ArrowLeftRight, StickyNote,
   Signal, Radar, Globe, Globe2, Server,
+  Database, FileCode, Lock, Trash2, Clipboard, KeyRound, SearchCode, Gauge,
 } from 'lucide-vue-next'
 import { useAppStore } from '@/stores/app'
 
@@ -98,6 +99,7 @@ const iconMap: Record<string, any> = {
   Cpu, Network, Monitor, FilePen, Pipette, Image, FolderSearch,
   Calculator, ArrowLeftRight, StickyNote,
   Signal, Radar, Globe, Globe2, Server, Settings,
+  Database, FileCode, Lock, Trash2, Clipboard, KeyRound, SearchCode, Gauge,
 }
 const getIcon = (name: string) => iconMap[name] || FileText
 
@@ -120,6 +122,10 @@ const navGroups = [
       { path: '/devtools/timestamp', label: '时间戳',      icon: 'Clock' },
       { path: '/devtools/regex',     label: '正则测试',    icon: 'Regex' },
       { path: '/devtools/snippets',  label: '代码片段',    icon: 'BookMarked' },
+      { path: '/devtools/radix',     label: '进制转换',    icon: 'Binary' },
+      { path: '/devtools/dummydata', label: '占位文本生成', icon: 'Database' },
+      { path: '/devtools/apidoc',    label: '接口文档生成', icon: 'FileCode' },
+      { path: '/devtools/obfuscator',label: '代码混淆',    icon: 'Lock' },
     ],
   },
   {
@@ -132,7 +138,9 @@ const navGroups = [
       { path: '/sysinfo/rename',  label: '批量重命名', icon: 'FilePen' },
       { path: '/sysinfo/colorpicker', label: '取色器', icon: 'Pipette' },
       { path: '/sysinfo/imagetool', label: '图片工具', icon: 'Image' },
-      { path: '/sysinfo/filebatch', label: '文件批量处理', icon: 'FolderSearch' },
+      { path: '/sysinfo/filebatch',   label: '文件批量处理', icon: 'FolderSearch' },
+      { path: '/sysinfo/diskcleaner', label: '磁盘清理',     icon: 'Trash2' },
+      { path: '/sysinfo/clipboard',   label: '剪贴板管理',   icon: 'Clipboard' },
     ],
   },
   {
@@ -141,7 +149,9 @@ const navGroups = [
     items: [
       { path: '/daily/calculator', label: '计算器',   icon: 'Calculator' },
       { path: '/daily/converter',  label: '单位换算', icon: 'ArrowLeftRight' },
-      { path: '/daily/notes',      label: '备忘录',   icon: 'StickyNote' },
+      { path: '/daily/notes',    label: '备忘录',       icon: 'StickyNote' },
+      { path: '/daily/password', label: '密码生成',     icon: 'KeyRound' },
+      { path: '/daily/qrbatch',  label: '二维码批量处理', icon: 'QrCode' },
     ],
   },
   {
@@ -152,7 +162,9 @@ const navGroups = [
       { path: '/network/scan',  label: '内网扫描',  icon: 'Radar' },
       { path: '/network/http',  label: 'HTTP 测试', icon: 'Globe' },
       { path: '/network/dns',   label: 'DNS 查询',  icon: 'Globe2' },
-      { path: '/network/hosts', label: 'Hosts 编辑', icon: 'Server' },
+      { path: '/network/hosts',     label: 'Hosts 编辑',  icon: 'Server' },
+      { path: '/network/whois',     label: 'WHOIS 查询', icon: 'SearchCode' },
+      { path: '/network/speedtest', label: '网络测速',   icon: 'Gauge' },
     ],
   },
 ]
