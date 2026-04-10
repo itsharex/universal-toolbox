@@ -45,8 +45,6 @@
                 >
                   <template v-if="editingId === shortcut.id">
                     <span class="text-xs opacity-50 animate-pulse">按下快捷键...</span>
-  </ToolPage>
-</template>
                   <template v-else-if="shortcut.keys">
                     <kbd v-for="key in shortcut.keys" :key="key" class="kbd">{{ key }}</kbd>
                   </template>
@@ -88,6 +86,7 @@
       </div>
     </div>
   </div>
+  </ToolPage>
 </template>
 
 <script setup lang="ts">

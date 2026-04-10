@@ -96,8 +96,7 @@
         <strong class="text-blue-400">说明：</strong>
         <template v-if="currentAlgo === 'md5'">
           MD5 是单向哈希算法，不可逆。用于密码存储、文件校验等。
-  </ToolPage>
-</template>
+        </template>
         <template v-else-if="currentAlgo === 'base64'">
           Base64 是编码方式，非加密。可逆，用于数据传输、URL安全字符等。
         </template>
@@ -107,6 +106,7 @@
       </div>
     </div>
   </div>
+  </ToolPage>
 </template>
 
 <script setup lang="ts">

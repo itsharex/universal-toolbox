@@ -32,8 +32,6 @@
         <div class="flex gap-2 mb-3">
           <input v-model="pattern" class="input-field flex-1" placeholder="查找（支持正则）..."/>
           <input v-model="replacement" class="input-field flex-1" placeholder="替换为（$1 引用捕获组）..."/>
-  </ToolPage>
-</template>
       <!-- 前缀 -->
       <template v-if="renameMode==='prefix'">
         <div class="flex gap-2 mb-3">
@@ -74,6 +72,7 @@
       </div>
     </div>
   </div>
+  </ToolPage>
 </template>
 <script setup lang="ts">
 import ToolPage from '@/components/ToolPage.vue'
