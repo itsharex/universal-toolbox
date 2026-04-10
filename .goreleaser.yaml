@@ -1,10 +1,10 @@
-# 万能工具箱 GoReleaser 配置
+# XTool GoReleaser 配置
 # 自动构建多平台二进制包并发布到 GitHub Release
 
 version: 2
 
 # 项目基础信息
-project_name: universal-toolbox
+project_name: xtool
 
 before:
   hooks:
@@ -12,9 +12,9 @@ before:
     - go mod download
 
 builds:
-  - id: universal-toolbox
+  - id: xtool
     main: .
-    binary: 万能工具箱
+    binary: xtool
     # 支持三平台构建
     goos:
       - windows
@@ -32,22 +32,73 @@ builds:
       - -s -w
       - -X main.version={{.Version}}
       - -X main.buildDate={{.Date}}
+      - -X main.gitCommit={{.Commit}}
     # 环境变量（CGO 用于 SQLite）
     env:
       - CGO_ENABLED=1
 
-# Windows 安装包配置
+# Windows NSIS 安装包配置
+nsis:
+  - id: xtool-installer
+    name: XTool {{.Version}} Setup
+    publisher: MasterPick
+    url: https://github.com/MasterPick/universal-toolbox
+    homepage: https://github.com/MasterPick/universal-toolbox
+    license: LICENSE
+    display_name: XTool
+    install_mode: currentUser
+    # 使用项目自定义图标
+    icon: build/windows/icon.ico
+    uninstaller_icon: build/windows/icon.ico
+    header_icon: build/windows/icon.ico
+    sidebar_icon: build/windows/icon.ico
+    # 安装目录
+    install_dir: "{{.ProgramFiles}}\\XTool"
+    # MUI2 设置
+    mui:
+      header_image: ""
+      sidebar_image: ""
+    # 自定义 NSIS 脚本（可选）
+    extra_files:
+      - README.md
+      - LICENSE
+
+# macOS DMG 配置
+universal_binaries:
+  - id: xtool-macos
+    replace: true
+    name_template: "xtool"
+
+# macOS DMG 打包
+dockers: []
+
+# Linux 包管理器配置（.deb / .rpm）
 nfpms:
   - id: linux-package
-    package_name: universal-toolbox
+    package_name: xtool
     vendor: MasterPick
     homepage: https://github.com/MasterPick/universal-toolbox
     maintainer: MasterPick <masterpickself@outlook.com>
-    description: 万能工具箱 - 一站式桌面工具集
+    description: XTool - One-stop Desktop Toolbox
     license: MIT
+    # 运行时依赖
+    dependencies:
+      - libgtk-3-0
+      - libwebkit2gtk-4.0-37
     formats:
       - deb
+      - rpm
       - tar.gz
+    # .desktop 文件
+    contents:
+      - src: build/linux/xtool.desktop
+        dst: /usr/share/applications/xtool.desktop
+        type: config
+    overrides:
+      deb:
+        depends:
+          - libgtk-3-0
+          - libwebkit2gtk-4.0-37
 
 # 存档打包
 archives:
@@ -65,6 +116,9 @@ archives:
       - LICENSE
       - CHANGELOG.md
 
+# macOS DMG 额外配置
+# 注：GoReleaser 原生 DMG 支持有限，建议通过 GitHub Actions 单独生成
+
 # 校验和
 checksum:
   name_template: "checksums.txt"
@@ -78,6 +132,10 @@ changelog:
       - '^test:'
       - '^chore:'
 
+# 快照配置
+snapshot:
+  name_template: "{{.Tag}}-next"
+
 # GitHub Release
 release:
   github:
@@ -87,11 +145,11 @@ release:
   prerelease: auto
   name_template: "v{{.Version}}"
   header: |
-    ## 万能工具箱 v{{.Version}}
-    
-    一站式桌面工具集，包含开发工具、系统工具、日常工具、网络工具等 30+ 功能。
-    
+    ## XTool v{{.Version}}
+
+    一站式全平台桌面工具集，为开发者与高级用户赋能。包含开发工具、系统工具、日常工具、网络工具等 40+ 功能。
+
     ### 下载说明
-    - **Windows**: 下载 `*_windows_amd64.zip`
+    - **Windows**: 下载 `*_windows_amd64.zip` 或 NSIS 安装包
     - **Linux**: 下载 `*_linux_amd64.tar.gz` 或 `.deb` 包
-    - **macOS**: 下载 `*_darwin_amd64.tar.gz`
+    - **macOS**: 下载 `*_darwin_amd64.tar.gz` 或 `*_darwin_arm64.tar.gz`

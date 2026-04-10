@@ -111,7 +111,7 @@ jobs:
             "!define APP_NAME '$appName'"
             "!define APP_VERSION '$version'"
             "!define APP_PUBLISHER 'MasterPick'"
-            "!define APP_URL 'https://github.com/MasterPick/xtool'"
+            "!define APP_URL 'https://github.com/MasterPick/universal-toolbox'"
             "!define APP_EXE '$appNameEn.exe'"
             "!define INSTALL_DIR `$PROGRAMFILES64\$appName"
             ""
@@ -128,12 +128,12 @@ jobs:
             "!define MUI_ABORTWARNING"
             "!define MUI_ABORTWARNING_TEXT '确定要退出安装吗？'"
             ""
-            "!define MUI_ICON `"C:\Program Files (x86)\NSIS\Contrib\Graphics\Icons\modern-install.ico`""
-            "!define MUI_UNICON `"C:\Program Files (x86)\NSIS\Contrib\Graphics\Icons\modern-uninstall.ico`""
+            "!define MUI_ICON `"build\windows\icon.ico`""
+            "!define MUI_UNICON `"build\windows\icon.ico`""
             "!define MUI_WELCOMEFINISHPAGE_BITMAP `"C:\Program Files (x86)\NSIS\Contrib\Graphics\Wizard\win.bmp`""
             "!define MUI_WELCOMEFINISHPAGE_BITMAP_NOSTRETCH"
             "!define MUI_HEADERIMAGE"
-            "!define MUI_HEADERIMAGE_BITMAP `"C:\Program Files (x86)\NSIS\Contrib\Graphics\Header\win.bmp`""
+            "!define MUI_HEADERIMAGE_BITMAP `"build\windows\icon.ico`""
             "!define MUI_HEADERIMAGE_BITMAP_NOSTRETCH"
             ""
             "!define MUI_COMPONENTSPAGE_NODESC"
@@ -149,7 +149,7 @@ jobs:
             "!define MUI_FINISHPAGE_RUN '`$INSTDIR\${APP_EXE}'"
             "!define MUI_FINISHPAGE_RUN_TEXT '运行 ${APP_NAME}'"
             "!define MUI_FINISHPAGE_RUN_NOTCHECKED"
-            "!define MUI_FINISHPAGE_SHOWREADME 'https://github.com/MasterPick/xtool'"
+            "!define MUI_FINISHPAGE_SHOWREADME 'https://github.com/MasterPick/universal-toolbox'"
             "!define MUI_FINISHPAGE_SHOWREADME_TEXT '访问 GitHub 主页'"
             ""
             "!insertmacro MUI_PAGE_WELCOME"
@@ -177,7 +177,7 @@ jobs:
             "  CreateDirectory '`$SMPROGRAMS\${APP_NAME}'"
             "  CreateShortcut '`$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk' '`$INSTDIR\${APP_EXE}'"
             "  CreateShortcut '`$SMPROGRAMS\${APP_NAME}\Uninstall.lnk' '`$INSTDIR\Uninstall.exe'"
-            "  CreateShortcut '`$SMPROGRAMS\${APP_NAME}\GitHub 主页.url' '`$https://github.com/MasterPick/xtool'"
+            "  CreateShortcut '`$SMPROGRAMS\${APP_NAME}\GitHub 主页.url' '`$https://github.com/MasterPick/universal-toolbox'"
             ""
             "  ; Registry"
             "  WriteRegStr HKLM 'Software\${APP_NAME}' '' '`$INSTDIR'"
@@ -355,7 +355,7 @@ jobs:
           Priority: optional
           Architecture: amd64
           Maintainer: MasterPick <masterpickself@outlook.com>
-          Homepage: https://github.com/MasterPick/xtool
+          Homepage: https://github.com/MasterPick/universal-toolbox
           Description: XTool - 一站式桌面工具集
            功能丰富的跨平台桌面工具集，包含开发工具、系统工具、
            日常工具、网络工具等30+实用功能。
@@ -528,6 +528,24 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v4
 
+      - name: 版本号自动回写
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "回写版本号: $VERSION"
+          # 更新 wails.json 中的版本号
+          sed -i "s/\"productVersion\": \".*\"/\"productVersion\": \"$VERSION\"/" wails.json
+          # 更新 Makefile 中的版本号（如有硬编码）
+          echo "版本号回写完成"
+          git diff wails.json || true
+
+      - name: 提交版本号变更
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add wails.json
+          git diff --cached --quiet || git commit -m "chore: bump version to ${GITHUB_REF_NAME}"
+          git push || echo "版本号提交跳过（可能无变更或分支受保护）"
+
       - name: 下载所有构建产物
         uses: actions/download-artifact@v4
         with:
@@ -646,7 +664,7 @@ jobs:
             
             ### 📝 变更日志
             
-            详见 [CHANGELOG.md](https://github.com/MasterPick/xtool/blob/main/CHANGELOG.md)
+            详见 [CHANGELOG.md](https://github.com/MasterPick/universal-toolbox/blob/main/CHANGELOG.md)
           files: |
             release-files/*.exe
             release-files/*.deb
