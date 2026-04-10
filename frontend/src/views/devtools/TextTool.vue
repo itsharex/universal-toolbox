@@ -64,8 +64,8 @@
           <div class="text-xl font-bold text-blue-400">{{ statResult.bytes || 0 }} B</div>
           <div class="text-xs opacity-50">字节大小</div>
         </div>
-  </ToolPage>
-</template>
+      </div>
+    </template>
 
     <!-- 查找替换 -->
     <template v-if="tab === 'replace'">
@@ -233,7 +233,7 @@
         <div class="code-output flex-1 min-h-[100px] whitespace-pre">{{ linesResult }}</div>
       </div>
     </template>
-  </div>
+  </ToolPage>
 </template>
 
 <script setup lang="ts">
